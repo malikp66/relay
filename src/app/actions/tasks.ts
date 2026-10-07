@@ -6,6 +6,7 @@ import { z } from "zod";
 import { getDb, schema as s } from "@/db";
 import { requireUser } from "@/server/auth";
 import { canManageTask, isAssignee } from "@/server/policy";
+import { notifyTask } from "@/server/notifications";
 import { CHECKLIST_EDITABLE, REPORT_EDITABLE, WorkflowError, loadTaskForAction, transition, type TransitionAction } from "@/server/workflow";
 
 export type Result = { ok: true; id?: string } | { ok: false; error: string };
@@ -86,6 +87,7 @@ export async function createTaskAction(input: z.input<typeof createSchema>): Pro
     await db.insert(s.checklistItems).values(data.items.map((it, i) => ({ taskId: task.id, label: it.label, type: it.type, unit: it.unit || null, required: it.required, sort: i })));
     const names = await db.select({ name: s.users.name }).from(s.users).where(inArray(s.users.id, data.assigneeIds));
     await db.insert(s.taskEvents).values({ taskId: task.id, actorId: user.id, type: "created", toStatus: "assigned", note: `Ditugaskan ke ${names.map((x) => x.name).join(", ")}` });
+    await notifyTask("task_assigned", task.id, { id: user.id, name: user.name });
     refresh();
     return { ok: true, id: task.id };
   } catch (e) {
@@ -151,6 +153,7 @@ export async function checkInAction(taskId: string, pos: { lat: number; lng: num
     if (task.status === "assigned") {
       await db.update(s.tasks).set({ status: "in_progress", startedAt: now, version: task.version + 1 }).where(eq(s.tasks.id, taskId));
       await db.insert(s.taskEvents).values({ taskId, actorId: user.id, type: "check_in", fromStatus: "assigned", toStatus: "in_progress", note });
+      await notifyTask("task_started", taskId, { id: user.id, name: user.name }, note.trim());
     } else {
       await db.insert(s.taskEvents).values({ taskId, actorId: user.id, type: "check_in", note });
     }

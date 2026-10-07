@@ -223,17 +223,21 @@ const REVISION_COMMENTS = [
 export async function seedIfEmpty(db: DB) {
   const res = await db.execute(sql`select count(*)::int as n from users`);
   const n = (res.rows[0] as { n: number }).n;
-  if (n > 0) return;
-  await seedDemo(db);
+  if (n === 0) await seedDemo(db);
+  // riwayat notifikasi demo (juga untuk database lama yang belum punya tabel notifikasi)
+  const { seedDemoNotifications } = await import("@/server/notifications");
+  await seedDemoNotifications(db);
 }
 
 export async function resetDemo(db: DB) {
   await db.execute(sql`
-    truncate table audit_logs, task_events, attendances, reviews, reports, checklist_responses,
+    truncate table notifications, push_subscriptions, files, audit_logs, task_events, attendances, reviews, reports, checklist_responses,
       checklist_items, task_assignees, maintenance_plans, tasks, report_templates,
       checklist_template_items, checklist_templates, sites, customers, priorities, group_scopes,
       products, categories, group_members, groups, sessions, users cascade`);
   await seedDemo(db);
+  const { seedDemoNotifications } = await import("@/server/notifications");
+  await seedDemoNotifications(db);
 }
 
 async function seedDemo(db: DB) {
@@ -306,7 +310,7 @@ async function seedDemo(db: DB) {
     const cat = catCode === "TS" ? catTS : catMT;
     const [tpl] = await db
       .insert(s.checklistTemplates)
-      .values({ name: `${cat.name} – ${P[prodCode].name}`, categoryId: cat.id, productId: P[prodCode].id })
+      .values({ name: `${cat.name} · ${P[prodCode].name}`, categoryId: cat.id, productId: P[prodCode].id })
       .returning();
     await db.insert(s.checklistTemplateItems).values(items.map(([label, type, required, unit], i) => ({ templateId: tpl.id, label, type, required, unit, sort: i })));
   }
@@ -348,7 +352,7 @@ async function seedDemo(db: DB) {
     const site = isTS ? custSites[custIdx] : pick(infraByProduct(spec.product).length ? infraByProduct(spec.product) : infraSites);
     const customer = isTS ? custRows[custIdx] : null;
     const titles = (isTS ? TS_TITLES : MT_TITLES)[spec.product];
-    const title = spec.title ?? `${pick(titles)}${isTS ? ` – ${customer!.name}` : ` – ${site.name}`}`;
+    const title = spec.title ?? `${pick(titles)}${isTS ? ` · ${customer!.name}` : ` · ${site.name}`}`;
     const scheduledFor = spec.scheduledInH !== undefined ? now + spec.scheduledInH * HOUR : isTS ? created + 1 * HOUR : created + 24 * HOUR;
     const dueAt = spec.overdue ? now - 3 * HOUR : (isTS ? created : scheduledFor) + prio.slaHours * HOUR;
 
@@ -524,15 +528,15 @@ async function seedDemo(db: DB) {
   /* — Showcase: kondisi yang terlihat saat demo — */
   const showcase: Spec[] = [
     // Crew A / Andi (teknisi demo utama)
-    { cat: "TS", product: "FO", status: "in_progress", priority: "high", assignees: ["andi", "dedi"], createdAgoH: 3, scheduledInH: -1.5, partial: 0.5, title: "Internet mati total – Ahmad Fauzi" },
-    { cat: "TS", product: "IP", status: "assigned", priority: "medium", assignees: ["andi"], createdAgoH: 1, scheduledInH: 2, title: "IPTV tidak ada siaran – Dewi Lestari" },
-    { cat: "TS", product: "FO", status: "assigned", priority: "urgent", assignees: ["andi", "eko"], createdAgoH: 0.5, scheduledInH: 0.5, title: "Internet kantor down – PT Sinar Logistik" },
-    { cat: "TS", product: "RD", status: "revision", priority: "medium", assignees: ["andi"], createdAgoH: 28, revisions: 1, title: "Sinyal radio lemah setelah hujan – Hendro Gunawan" },
-    { cat: "TS", product: "DT", status: "job_done", priority: "low", assignees: ["andi"], createdAgoH: 6, title: "Gambar TV kotak-kotak – Rudi Hartono" },
+    { cat: "TS", product: "FO", status: "in_progress", priority: "high", assignees: ["andi", "dedi"], createdAgoH: 3, scheduledInH: -1.5, partial: 0.5, title: "Internet mati total · Ahmad Fauzi" },
+    { cat: "TS", product: "IP", status: "assigned", priority: "medium", assignees: ["andi"], createdAgoH: 1, scheduledInH: 2, title: "IPTV tidak ada siaran · Dewi Lestari" },
+    { cat: "TS", product: "FO", status: "assigned", priority: "urgent", assignees: ["andi", "eko"], createdAgoH: 0.5, scheduledInH: 0.5, title: "Internet kantor down · PT Sinar Logistik" },
+    { cat: "TS", product: "RD", status: "revision", priority: "medium", assignees: ["andi"], createdAgoH: 28, revisions: 1, title: "Sinyal radio lemah setelah hujan · Hendro Gunawan" },
+    { cat: "TS", product: "DT", status: "job_done", priority: "low", assignees: ["andi"], createdAgoH: 6, title: "Gambar TV kotak-kotak · Rudi Hartono" },
     // Antrian review Budi
-    { cat: "TS", product: "FO", status: "submitted", priority: "high", assignees: ["dedi"], createdAgoH: 7, title: "Lampu LOS merah di ONT – Siti Aminah" },
+    { cat: "TS", product: "FO", status: "submitted", priority: "high", assignees: ["dedi"], createdAgoH: 7, title: "Lampu LOS merah di ONT · Siti Aminah" },
     { cat: "TS", product: "IP", status: "submitted", priority: "medium", assignees: ["eko", "fajar"], createdAgoH: 10 },
-    { cat: "TS", product: "FO", status: "under_review", priority: "urgent", assignees: ["fajar"], createdAgoH: 9, revisions: 1, title: "Internet lambat & putus-putus – Klinik Sehat Bersama" },
+    { cat: "TS", product: "FO", status: "under_review", priority: "urgent", assignees: ["fajar"], createdAgoH: 9, revisions: 1, title: "Internet lambat & putus-putus · Klinik Sehat Bersama" },
     { cat: "TS", product: "RD", status: "in_progress", priority: "medium", assignees: ["eko"], createdAgoH: 4, scheduledInH: -2, partial: 0.4 },
     { cat: "TS", product: "OT", status: "assigned", priority: "low", assignees: ["fajar"], createdAgoH: 2, scheduledInH: 20 },
     { cat: "TS", product: "FO", status: "in_progress", priority: "high", assignees: ["dedi"], createdAgoH: 30, scheduledInH: -26, partial: 0.3, overdue: true },

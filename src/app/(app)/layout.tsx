@@ -8,6 +8,8 @@ import { ConnectionDot, OfflineBanner } from "@/components/shell/connection";
 import { UserMenu } from "@/components/shell/user-menu";
 import { ThemeIconButton } from "@/components/shell/theme";
 import { TourProvider } from "@/components/tour/tour-provider";
+import { NavTracker } from "@/components/relay/back-button";
+import { NotificationBell } from "@/components/notifications/bell";
 import { BrandMark } from "@/lib/brand-icon";
 import { ROLE_LABEL } from "@/lib/labels";
 import { sql } from "drizzle-orm";
@@ -24,6 +26,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <TourProvider userId={user.id} role={user.role}>
+      <NavTracker />
     <div className="min-h-dvh lg:grid lg:grid-cols-[248px_1fr]">
       <OfflineBanner />
       <aside className="sticky top-0 hidden h-dvh flex-col border-r border-foreground/[0.06] bg-zinc-100/70 px-3 py-5 lg:flex dark:bg-white/[0.02]">
@@ -54,6 +57,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <div className="ml-auto flex items-center gap-2">
               <ConnectionDot />
               <ThemeIconButton />
+              <NotificationBell />
               <UserMenu user={user} />
             </div>
           </div>

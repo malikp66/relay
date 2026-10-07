@@ -63,8 +63,8 @@
 }
 
 @theme inline {
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-sans-family), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-mono-family), ui-monospace, monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -99,6 +99,9 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
+    /* Plus Jakarta Sans punya spasi antarkata yang rapat — longgarkan sedikit agar mudah dibaca */
+    word-spacing: 0.03em;
+    font-feature-settings: "kern", "calt";
     overscroll-behavior-y: none;
   }
   input,
@@ -202,6 +205,12 @@
     outline: 2px solid color-mix(in oklab, var(--primary) 60%, transparent);
     outline-offset: 2px;
   }
+}
+
+/* Kartu item checklist yang sudah selesai — satu gaya untuk semua tipe item */
+@utility check-done {
+  border-color: color-mix(in oklab, #10b981 40%, var(--border));
+  background-image: linear-gradient(180deg, color-mix(in oklab, #10b981 6%, var(--card)), var(--card) 70%);
 }
 
 /* Panah yang muncul halus saat kartu di-hover (pasang di elemen dalam .group) */

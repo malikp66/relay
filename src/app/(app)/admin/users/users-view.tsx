@@ -36,6 +36,7 @@ export function UsersView({ users, groups }: { users: U[]; groups: { id: string;
 
   return (
     <div className="space-y-3">
+      <div data-tour="users-filter">
       <SmoothTabs
         value={filter}
         onChange={setFilter}
@@ -46,16 +47,17 @@ export function UsersView({ users, groups }: { users: U[]; groups: { id: string;
           { id: "admin", label: "Admin" },
         ]}
       />
+      </div>
       <div className="flex gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari nama / username" className="h-11 rounded-xl pl-10" />
         </div>
-        <Button className="h-11 rounded-xl" onClick={() => setEdit({ role: "technician", groupId: groups[0]?.id ?? "" })}>
+        <Button data-tour="users-add" className="h-11 rounded-xl" onClick={() => setEdit({ role: "technician", groupId: groups[0]?.id ?? "" })}>
           <Plus className="size-4" /> User
         </Button>
       </div>
-      <ul className="divide-y overflow-hidden rounded-2xl border bg-card">
+      <ul data-tour="users-list" className="divide-y overflow-hidden rounded-2xl border bg-card shadow-[var(--shadow-card)]">
         {list.map((u) => (
           <li key={u.id} className={cn("flex items-center gap-3 px-4 py-3", !u.isActive && "opacity-50")}>
             <Avatar id={u.id} name={u.name} />
@@ -116,7 +118,7 @@ export function UsersView({ users, groups }: { users: U[]; groups: { id: string;
               <div className="space-y-1.5">
                 <Label>Crew</Label>
                 <select value={edit.groupId ?? ""} onChange={(e) => setEdit({ ...edit, groupId: e.target.value })} className="h-11 w-full rounded-xl border bg-background px-3 text-sm">
-                  <option value="">— Tanpa crew —</option>
+                  <option value="">Tanpa crew</option>
                   {groups.map((g) => (
                     <option key={g.id} value={g.id}>
                       {g.name}

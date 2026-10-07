@@ -25,7 +25,7 @@ export default async function MasterPage() {
         rows={md.priorities.map((r) => ({ ...r, _primary: r.name, _secondary: `Level ${r.level} · SLA ${r.slaHours >= 24 ? `${r.slaHours / 24} hari` : `${r.slaHours} jam`}` }))}
         fields={[
           { key: "name", label: "Nama" },
-          { key: "level", label: "Level (1–4)", type: "number", half: true },
+          { key: "level", label: "Level (1 sampai 4)", type: "number", half: true },
           { key: "slaHours", label: "SLA (jam)", type: "number", half: true },
         ]}
       />

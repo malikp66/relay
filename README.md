@@ -15,6 +15,32 @@ Buka `http://localhost:3000`. Database dibuat & diisi data dummy otomatis di `.d
 
 Build production: `npm run build && npm start`. Service worker (PWA offline) hanya aktif di build production.
 
+## Deploy ke Vercel
+
+Vercel (serverless) **tidak punya disk persisten**, jadi database lokal PGlite tidak bisa dipakai di sana. Wajib pakai Postgres:
+
+1. Buat database Postgres — paling mudah: Vercel → project → **Storage → Neon (Postgres)** → Connect. Ini otomatis menambah env `DATABASE_URL`.
+   (Atau buat sendiri di neon.tech lalu isi `DATABASE_URL` di Settings → Environment Variables.)
+2. Redeploy. Saat request pertama, aplikasi otomatis menjalankan migrasi & mengisi data demo (dikunci agar tidak dobel).
+3. Cek: buka `/api/health` → harus `{"ok":true,"db":"postgres"}`.
+
+Env opsional: `DEMO_MODE=false` (matikan login cepat demo), `PG_POOL_MAX` (default 3).
+
+### Notifikasi (lonceng + push ke perangkat)
+
+Notifikasi di dalam app (lonceng, toast, suara) jalan tanpa konfigurasi. Untuk **push ke HP/laptop walau Relay ditutup**, isi env:
+
+| Env | Isi |
+|---|---|
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Pasangan kunci Web Push. Buat dengan `npx web-push generate-vapid-keys` (atau salin dari `.env.local`). Jangan diganti setelah dipakai — langganan perangkat lama akan berhenti. |
+| `VAPID_SUBJECT` | Kontak pengelola, mis. `mailto:it@perusahaan.co.id` |
+| `CRON_SECRET` (opsional) | Untuk `/api/cron/sla` (pengingat deadline). Tanpa cron pun pengingat tetap dicek tiap ±5 menit saat ada user membuka app. |
+
+User mengaktifkan push di **Akun → Notifikasi** (atau tombol *Aktifkan* di lonceng). iPhone/iPad: Relay harus dipasang ke Layar Utama dulu (iOS 16.4+).
+
+Kejadian yang dikirim: task baru (ke teknisi), teknisi check-in / Job Done (ke supervisor), laporan masuk / revisi dikirim ulang (ke supervisor), review dimulai / minta revisi / disetujui / dibatalkan (ke teknisi), deadline < 2 jam (ke teknisi), overdue (ke teknisi, supervisor, admin).
+Foto bukti disimpan di tabel `files` di database, jadi tidak butuh storage terpisah untuk demo.
+
 ## Akun demo
 
 Password semua akun: **`relay123`**. Di halaman login ada tombol **Masuk cepat**, dan di menu avatar ada **Ganti akun demo**.

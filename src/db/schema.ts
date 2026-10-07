@@ -1,4 +1,5 @@
 import {
+  customType,
   pgTable,
   text,
   integer,
@@ -386,5 +387,69 @@ export const auditLogs = pgTable("audit_logs", {
   entityId: text("entity_id"),
   action: text("action").notNull(),
   summary: text("summary"),
+  createdAt: createdAt(),
+});
+
+/* ───────────── File (foto bukti) ───────────── */
+
+const bytea = customType<{ data: Buffer; driverData: Buffer | Uint8Array }>({
+  dataType: () => "bytea",
+  fromDriver: (v) => (Buffer.isBuffer(v) ? v : Buffer.from(v)),
+});
+
+/** Foto disimpan di database agar jalan di serverless (Vercel) tanpa disk persisten. */
+export const files = pgTable("files", {
+  id: text("id").primaryKey(),
+  mime: text("mime").notNull(),
+  size: integer("size").notNull(),
+  data: bytea("data").notNull(),
+  uploadedBy: text("uploaded_by").references(() => users.id),
+  createdAt: createdAt(),
+});
+
+/* ───────────── Notifikasi ───────────── */
+
+export type NotificationKind =
+  | "task_assigned"
+  | "task_started"
+  | "job_done"
+  | "report_submitted"
+  | "report_resubmitted"
+  | "review_started"
+  | "revision_requested"
+  | "task_approved"
+  | "task_cancelled"
+  | "due_soon"
+  | "overdue"
+  | "test";
+
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: id(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    kind: text("kind").$type<NotificationKind>().notNull(),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    url: text("url"),
+    taskId: text("task_id").references(() => tasks.id, { onDelete: "cascade" }),
+    actorId: text("actor_id").references(() => users.id, { onDelete: "set null" }),
+    readAt: ts("read_at"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("notifications_user_created_idx").on(t.userId, t.createdAt)],
+);
+
+export const pushSubscriptions = pgTable("push_subscriptions", {
+  id: id(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  endpoint: text("endpoint").notNull().unique(),
+  p256dh: text("p256dh").notNull(),
+  auth: text("auth").notNull(),
+  userAgent: text("user_agent"),
   createdAt: createdAt(),
 });

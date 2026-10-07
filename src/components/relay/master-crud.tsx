@@ -31,13 +31,13 @@ export function MasterCrud({ kind, title, rows, fields, searchable }: { kind: Ki
   const list = rows.filter((r) => !q || JSON.stringify(r).toLowerCase().includes(q.toLowerCase()));
 
   return (
-    <section className="min-w-0 space-y-3">
+    <section data-tour="master-section" className="min-w-0 space-y-3">
       <div className="flex items-center justify-between gap-2">
         <h2 className="flex items-center gap-2 text-[15px] font-semibold tracking-[-0.01em]">
           {title}
           <span className="tabular rounded-md bg-foreground/[0.06] px-1.5 text-[12px] font-medium leading-5 text-muted-foreground">{rows.length}</span>
         </h2>
-        <Button size="sm" variant="outline" className="h-8 rounded-lg bg-card shadow-[var(--shadow-card)]" onClick={() => open("new")}>
+        <Button data-tour="master-add" size="sm" variant="outline" className="h-8 rounded-lg bg-card shadow-[var(--shadow-card)]" onClick={() => open("new")}>
           <Plus className="size-4" /> Tambah
         </Button>
       </div>
@@ -49,7 +49,7 @@ export function MasterCrud({ kind, title, rows, fields, searchable }: { kind: Ki
       )}
       <ul className="divide-y overflow-hidden rounded-2xl border bg-card shadow-[var(--shadow-card)]">
         {list.map((r) => (
-          <li key={r.id} className="flex items-center gap-1 py-2.5 pl-4 pr-2">
+          <li key={r.id} data-tour="master-row" className="flex items-center gap-1 py-2.5 pl-4 pr-2">
             <div className="min-w-0 flex-1 pr-2">
               <p className="truncate text-[14px] font-medium">{r._primary}</p>
               {r._secondary && <p className="mt-0.5 truncate text-[12.5px] text-muted-foreground">{r._secondary}</p>}
@@ -101,7 +101,7 @@ export function MasterCrud({ kind, title, rows, fields, searchable }: { kind: Ki
                     <Textarea value={String(form[f.key] ?? "")} onChange={(e) => setForm((p) => ({ ...p, [f.key]: e.target.value }))} className="rounded-xl" rows={2} />
                   ) : f.type === "select" ? (
                     <select value={String(form[f.key] ?? "")} onChange={(e) => setForm((p) => ({ ...p, [f.key]: e.target.value }))} className="h-11 w-full rounded-xl border bg-background px-3 text-sm">
-                      <option value="">—</option>
+                      <option value="">Tidak ada</option>
                       {f.options?.map((o) => (
                         <option key={o.id} value={o.id}>
                           {o.name}

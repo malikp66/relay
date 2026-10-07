@@ -45,7 +45,7 @@ export default async function StatsPage({ searchParams }: PageProps<"/stats">) {
         />
       </div>
 
-      <Section title="Throughput">
+      <Section tour="stats-throughput" title="Throughput">
         <Metrics
           cols={4}
           items={[
@@ -82,7 +82,7 @@ export default async function StatsPage({ searchParams }: PageProps<"/stats">) {
         </div>
       </Section>
 
-      <Section title="Waktu & SLA" description="Rata-rata durasi tiap fase untuk task yang selesai di periode ini.">
+      <Section tour="stats-sla" title="Waktu & SLA" description="Rata-rata durasi tiap fase untuk task yang selesai di periode ini.">
         <Metrics
           cols={3}
           items={[
@@ -96,7 +96,7 @@ export default async function StatsPage({ searchParams }: PageProps<"/stats">) {
         />
       </Section>
 
-      <Section title="Kualitas laporan" description="Seberapa sering laporan dikembalikan untuk revisi.">
+      <Section tour="stats-quality" title="Kualitas laporan" description="Seberapa sering laporan dikembalikan untuk revisi.">
         <Metrics
           cols={2}
           items={[
@@ -136,7 +136,7 @@ export default async function StatsPage({ searchParams }: PageProps<"/stats">) {
         )}
       </Section>
 
-      <Section title="Absensi" description="Kepatuhan = check-in valid (dalam radius) ÷ task dikerjakan. Telat = check-in >15 menit dari jadwal.">
+      <Section tour="stats-attendance" title="Absensi" description="Kepatuhan = check-in valid (dalam radius) ÷ task dikerjakan. Telat = check-in >15 menit dari jadwal.">
         <DataTable
           head={["Teknisi", "Kepatuhan", "Telat"]}
           rows={attendance.map((a) => ({

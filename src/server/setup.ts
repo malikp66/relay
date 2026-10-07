@@ -39,9 +39,9 @@ export async function setupItems(user: CurrentUser): Promise<SetupItem[]> {
     ]);
     return [
       { id: "team", title: "Cek anggota crew kamu", description: "Pastikan semua teknisi sudah terdaftar di crew.", href: "/attendance", done: count(members) > 0 },
-      { id: "first-task", title: "Buat task pertama", description: "Pilih kategori & produk — checklist terisi otomatis.", href: "/tasks/new", done: count(created) > 0 },
+      { id: "first-task", title: "Buat task pertama", description: "Pilih kategori & produk, checklist terisi otomatis.", href: "/tasks/new", done: count(created) > 0 },
       { id: "review", title: "Review laporan pertama", description: "Setujui atau minta revisi dengan komentar.", href: "/review", done: count(reviewed) > 0 },
-      { id: "plan", title: "Atur maintenance berulang", description: "Opsional — untuk pekerjaan rutin mingguan/bulanan.", href: "/schedule", done: count(plans) > 0 },
+      { id: "plan", title: "Atur maintenance berulang", description: "Opsional, untuk pekerjaan rutin mingguan/bulanan.", href: "/schedule", done: count(plans) > 0 },
     ];
   }
   return [];

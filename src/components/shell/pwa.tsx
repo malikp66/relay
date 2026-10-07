@@ -11,7 +11,22 @@ type BIPEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ out
 /** Registrasi service worker + deteksi versi baru (RLY-401, 404). */
 export function PwaRegister() {
   useEffect(() => {
-    if (!("serviceWorker" in navigator) || process.env.NODE_ENV !== "production") return;
+    if (!("serviceWorker" in navigator)) return;
+    if (process.env.NODE_ENV !== "production") {
+      // Dev: SW production lama (cache-first) menyajikan CSS/JS basi → lepas & bersihkan.
+      // Lalu daftarkan SW mode dev (/sw.js?dev=1) yang hanya menangani push, tanpa cache.
+      navigator.serviceWorker.getRegistrations().then(async (regs) => {
+        const stale = regs.filter((r) => !(r.active ?? r.installing ?? r.waiting)?.scriptURL.includes("dev=1"));
+        if (stale.length) {
+          await Promise.all(stale.map((r) => r.unregister()));
+          const keys = await caches.keys();
+          await Promise.all(keys.filter((k) => k.startsWith("relay-")).map((k) => caches.delete(k)));
+          if (navigator.serviceWorker.controller && !navigator.serviceWorker.controller.scriptURL.includes("dev=1")) return location.reload();
+        }
+        navigator.serviceWorker.register("/sw.js?dev=1").catch(() => {});
+      });
+      return;
+    }
     navigator.serviceWorker.register("/sw.js").then((reg) => {
       reg.addEventListener("updatefound", () => {
         const sw = reg.installing;

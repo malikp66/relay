@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Relay — Field Operations",
+    name: "Relay Field Operations",
     short_name: "Relay",
     description: "Kelola pekerjaan lapangan: tugas, absensi, checklist, laporan, dan review.",
     id: "/",

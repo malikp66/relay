@@ -8,7 +8,7 @@ export const ERRORS = {
   409: { title: "Data sudah berubah", description: "Data ini baru saja diubah orang lain. Muat ulang halaman untuk melihat versi terbaru." },
   413: { title: "File terlalu besar", description: "Ukuran foto maksimal 10 MB. Coba ambil ulang foto dengan resolusi lebih kecil." },
   429: { title: "Terlalu banyak percobaan", description: "Tunggu sebentar sebelum mencoba lagi." },
-  500: { title: "Terjadi kesalahan", description: "Ada masalah di sisi kami. Tim sudah tercatat otomatis — coba lagi beberapa saat." },
+  500: { title: "Terjadi kesalahan", description: "Ada masalah di sisi kami. Tim sudah tercatat otomatis. Coba lagi beberapa saat." },
   502: { title: "Server tidak dapat dihubungi", description: "Layanan sedang bermasalah sementara. Coba lagi beberapa saat." },
   503: { title: "Sedang pemeliharaan", description: "Relay sedang diperbarui. Silakan coba lagi beberapa menit lagi." },
   504: { title: "Server terlalu lama merespons", description: "Coba lagi. Jika terus terjadi, hubungi admin." },

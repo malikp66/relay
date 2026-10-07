@@ -56,9 +56,11 @@ export function TaskFilterBar({ view, counts, options, showReview }: { view: str
 
   return (
     <div className={cn("space-y-3 transition-opacity duration-200", pending && "opacity-60")}>
-      <SmoothTabs items={tabs} value={view} onChange={(id) => set({ view: id === "active" ? null : id })} />
+      <div data-tour="task-tabs">
+        <SmoothTabs items={tabs} value={view} onChange={(id) => set({ view: id === "active" ? null : id })} />
+      </div>
       <div className="flex gap-2">
-        <div className="relative flex-1">
+        <div data-tour="task-search" className="relative flex-1">
           <Search className="pointer-events-none absolute left-3.5 top-1/2 size-[17px] -translate-y-1/2 text-muted-foreground" strokeWidth={2.1} />
           <Input
             type="search"
@@ -75,7 +77,7 @@ export function TaskFilterBar({ view, counts, options, showReview }: { view: str
           onOpenChange={setOpen}
           title="Filter tugas"
           trigger={
-            <Button variant="outline" aria-label="Filter" className="relative size-11 rounded-xl bg-card p-0 shadow-[var(--shadow-card)] sm:w-auto sm:px-3.5">
+            <Button data-tour="task-filter" variant="outline" aria-label="Filter" className="relative size-11 rounded-xl bg-card p-0 shadow-[var(--shadow-card)] sm:w-auto sm:px-3.5">
               <SlidersHorizontal className="size-[17px]" strokeWidth={2.1} />
               <span className="hidden sm:inline">Filter</span>
               {active.length > 0 && <span className="tabular absolute -right-1 -top-1 flex size-[18px] items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground ring-2 ring-background">{active.length}</span>}

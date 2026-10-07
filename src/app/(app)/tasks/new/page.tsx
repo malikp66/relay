@@ -27,11 +27,11 @@ export default async function NewTaskPage() {
     .filter((c) => c.groupId && allowedGroups.includes(c.groupId));
 
   return (
-    <div className="pb-24">
+    <div className="pb-28 lg:pb-0">
       <PageHeader title="Buat task" subtitle="Checklist terisi otomatis dari template kategori & produk." />
       <NewTaskForm
         categories={categories.map((c) => ({ id: c.id, name: c.name, code: c.code, groupId: c.groupId!, groupName: md.groups.find((g) => g.id === c.groupId)?.name ?? "" }))}
-        products={md.products.map((p) => ({ id: p.id, name: p.name }))}
+        products={md.products.map((p) => ({ id: p.id, name: p.name, code: p.code }))}
         priorities={md.priorities.map((p) => ({ id: p.id, name: p.name, level: p.level, slaHours: p.slaHours }))}
         sites={md.sites.map((x) => ({ id: x.id, name: x.name, address: x.address, customerId: x.customerId }))}
         customers={md.customers.map((c) => ({ id: c.id, name: c.name, customerNo: c.customerNo }))}

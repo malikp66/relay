@@ -18,7 +18,7 @@ export function AccountActions() {
   }, [state]);
   return (
     <>
-      <form action={action} className="space-y-3 rounded-2xl border bg-card p-4">
+      <form data-tour="account-password" action={action} className="space-y-3 rounded-2xl border bg-card p-4 shadow-[var(--shadow-card)] sm:p-5">
         <p className="font-medium">Ganti password</p>
         <div className="space-y-1.5">
           <Label htmlFor="current">Password lama</Label>

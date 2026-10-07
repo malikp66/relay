@@ -29,7 +29,7 @@ export default async function AttendancePage({ searchParams }: PageProps<"/atten
       <div className="space-y-8">
         <PageHeader title="Absensi" subtitle="Check-in dilakukan dari halaman tugas saat tiba di lokasi." />
         {open ? (
-          <Link href={`/tasks/${open.taskId}`} data-selected="true" style={{ "--tint": "#2563eb" } as CSSProperties} className="card-interactive group block rounded-2xl p-4 sm:p-5">
+          <Link href={`/tasks/${open.taskId}`} data-tour="att-status" data-selected="true" style={{ "--tint": "#2563eb" } as CSSProperties} className="card-interactive group block rounded-2xl p-4 sm:p-5">
             <div className="flex items-center gap-2 text-[13px] font-medium text-primary">
               <span className="relative flex size-2">
                 <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary/60" />
@@ -45,7 +45,7 @@ export default async function AttendancePage({ searchParams }: PageProps<"/atten
             <p className="mt-0.5 truncate text-[13.5px] font-medium">{open.taskTitle}</p>
           </Link>
         ) : (
-          <div className="rounded-2xl border border-dashed border-foreground/15 p-4 sm:p-5">
+          <div data-tour="att-status" className="rounded-2xl border border-dashed border-foreground/15 p-4 sm:p-5">
             <p className="flex items-center gap-2 text-[13px] font-medium text-muted-foreground">
               <MapPinOff className="size-4" /> Belum check-in
             </p>
@@ -53,7 +53,7 @@ export default async function AttendancePage({ searchParams }: PageProps<"/atten
           </div>
         )}
         {upcoming.length > 0 && (
-          <Section title="Siap check-in" count={upcoming.length}>
+          <Section tour="att-ready" title="Siap check-in" count={upcoming.length}>
             <div className="divide-y overflow-hidden rounded-2xl border bg-card shadow-[var(--shadow-card)]">
               {upcoming.map((t) => (
                 <Link key={t.id} href={`/tasks/${t.id}`} className="flex items-center gap-3 px-4 py-3">
@@ -70,7 +70,7 @@ export default async function AttendancePage({ searchParams }: PageProps<"/atten
             </div>
           </Section>
         )}
-        <Section title="Riwayat 14 hari">
+        <Section tour="att-history" title="Riwayat 14 hari">
           {history.length ? <AttendanceRows rows={history} showUser={false} /> : <EmptyState icon={Clock} title="Belum ada riwayat" />}
         </Section>
       </div>
@@ -85,8 +85,9 @@ export default async function AttendancePage({ searchParams }: PageProps<"/atten
 
   return (
     <div className="space-y-8">
-      <PageHeader title="Absensi tim" subtitle={fmtDate(day, { weekday: "long", day: "numeric", month: "long" })} action={<DatePicker />} />
+      <PageHeader title="Absensi tim" subtitle={fmtDate(day, { weekday: "long", day: "numeric", month: "long" })} action={<div data-tour="att-date"><DatePicker /></div>} />
       <Metrics
+        data-tour="att-metrics"
         items={[
           { label: "Check-in", value: rows.length },
           { label: "Teknisi hadir", value: `${checkedUsers.size}/${load.length}` },
@@ -94,7 +95,7 @@ export default async function AttendancePage({ searchParams }: PageProps<"/atten
           { label: "Di luar radius", value: outside, tone: outside ? "danger" : "default" },
         ]}
       />
-      <Section title="Sedang di lokasi" count={onSite.length}>
+      <Section tour="att-onsite" title="Sedang di lokasi" count={onSite.length}>
         <div className="flex flex-wrap gap-2">
           {onSite.map((m) => (
             <span key={m.id} className="flex items-center gap-2 rounded-full border bg-card py-1 pl-1 pr-3 text-[13px] font-medium shadow-[var(--shadow-card)]">
@@ -104,7 +105,7 @@ export default async function AttendancePage({ searchParams }: PageProps<"/atten
           {!onSite.length && <p className="text-sm text-muted-foreground">Tidak ada.</p>}
         </div>
       </Section>
-      <Section title="Daftar check-in">{rows.length ? <AttendanceRows rows={rows} showUser /> : <EmptyState icon={Clock} title="Belum ada check-in di tanggal ini" />}</Section>
+      <Section tour="att-list" title="Daftar check-in">{rows.length ? <AttendanceRows rows={rows} showUser /> : <EmptyState icon={Clock} title="Belum ada check-in di tanggal ini" />}</Section>
     </div>
   );
 }
@@ -124,7 +125,7 @@ function AttendanceRows({ rows, showUser }: { rows: Awaited<ReturnType<typeof at
             </div>
             <div className="text-right">
               <p className="tabular whitespace-nowrap text-[13px] font-medium">
-                {fmtTime(r.a.checkInAt)}–{r.a.checkOutAt ? fmtTime(r.a.checkOutAt) : "…"}
+                {fmtTime(r.a.checkInAt)} s.d. {r.a.checkOutAt ? fmtTime(r.a.checkOutAt) : "sekarang"}
               </p>
               <p className="flex justify-end gap-1 text-[11px]">
                 {r.a.isLate && <span className="text-amber-600">terlambat</span>}

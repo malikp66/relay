@@ -22,7 +22,7 @@ export default async function MorePage() {
   return (
     <div className="space-y-4">
       <PageHeader title="Lainnya" />
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div data-tour="more-list" className="grid gap-3 sm:grid-cols-2">
         {MORE_NAV[user.role].map((k) => {
           const m = META[k];
           const it = navItem(k);

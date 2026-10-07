@@ -15,6 +15,7 @@ Rencana & tasklist: `../RENCANA_PENGERJAAN_RELAY.md`. Papan kerja: `../SPRINT_BO
 - Error/alert: notifikasi SELALU `notify.*` (`components/relay/notify.tsx`, kanan atas) — jangan import `toast` dari sonner langsung. `<Alert>` (inline, callout) & `useAlert().confirm()/banner` dari `components/relay/alert.tsx`. Di dev, `window.relayNotify` tersedia untuk uji. Halaman error via `ErrorScreen` + katalog `lib/errors.ts`.
 
 ## Gaya visual & motion (jangan "AI slop")
+- Tipografi: **Plus Jakarta Sans** (UI, mendukung angka tabular → pakai utility `tabular` untuk angka) + **JetBrains Mono** (kode task, nomor pelanggan). Judul 26px semibold tracking -0.02em; isi 14–15px; label 12–13px muted. Jangan kembali ke Geist/Inter.
 - Motion: hanya `transform`/`opacity`, ease-out `var(--ease-out)` / `ease.out` di `lib/motion.ts`, durasi 150–250 ms, spring tanpa pantulan (`slide`). Jangan `transition-all`, jangan animasikan `width`. Jangan tumpuk animasi di atas Vaul/Radix.
 - Kartu interaktif: utility `card-interactive` (+ `--tint` per kartu, `data-selected`/`aria-pressed` untuk terpilih), panah hover `reveal-arrow`. Navigasi grid: `LinkCard` + `IconTile` (gaya Upstash console).
 - Pilihan/chip: utility `chip` (terpilih = tint halus, bukan isi solid). Tekan: utility `press`.
@@ -26,13 +27,24 @@ Rencana & tasklist: `../RENCANA_PENGERJAAN_RELAY.md`. Papan kerja: `../SPRINT_BO
 - Grid berisi list/teks panjang: pakai `grid-cols-1` + `min-w-0` supaya tidak melebar di HP.
 
 ## Tur & langkah awal
-- Langkah tur per role di `src/lib/tour.ts`; target = atribut `data-tour` (mis. `nav-tasks`, `home-summary`, `user-menu`, `setup`). Elemen terlihat pertama yang dipakai. Naikkan `TOUR_VERSION` bila tur berubah besar (semua user akan melihat lagi).
+- Tur perkenalan per role (`TOURS`) + tur per halaman (`PAGE_TOURS`, dibuka tombol **Panduan** di header) di `src/lib/tour.ts`. Halaman baru → tambahkan entri `PAGE_TOURS` + atribut `data-tour` (atau prop `tour` di `Section`). Langkah yang targetnya tidak tampil untuk role tsb otomatis dilewati.
+- Langkah tur: target = atribut `data-tour` (mis. `nav-tasks`, `home-summary`, `user-menu`, `setup`). Elemen terlihat pertama yang dipakai. Naikkan `TOUR_VERSION` bila tur berubah besar (semua user akan melihat lagi).
 - Checklist "Mulai di sini": `server/setup.ts` (admin/supervisor, dari data) + `components/relay/setup-checklist.tsx` (teknisi: kesiapan perangkat).
 - Status di halaman: pakai `Callout` (kartu netral + border kiri 3px berwarna yang ikut melengkung), bukan blok warna penuh.
 
+## Notifikasi
+- Server: `server/notifications.ts` — `notifyTask(kind, taskId, actor, note)` menyusun judul/isi + penerima, simpan ke tabel `notifications`, lalu Web Push via `after()`. Dipanggil dari `workflow.transition` (semua transisi), `createTaskAction`, `checkInAction`. Kejadian baru → tambah `NotificationKind` (schema) + case di `compose()` + `KIND_META` (bell) + `SFX_FOR` (store).
+- Client: `components/notifications/` (store polling 20 dtk + pesan SW, `bell.tsx`, `settings.tsx`). Suara: `lib/sfx.ts` (Web Audio, tanpa file). SW `public/sw.js` menangani push/klik; di dev didaftarkan sebagai `/sw.js?dev=1` (tanpa cache).
+- Push butuh `VAPID_*` di env. Browser panel Claude memblokir izin notifikasi — uji push nyata di Chrome biasa.
+
 ## Data
-- Demo: PGlite di `.data/pglite` (auto-migrate + seed). Ubah schema → `npx drizzle-kit generate` lalu hapus `.data/pglite` atau Reset data demo.
+- `DATABASE_URL` diisi → Postgres (node-postgres, mis. Neon) — wajib di Vercel. Kosong → PGlite di `.data/pglite` (lokal). Migrasi + seed otomatis saat start, dikunci `pg_advisory_lock`. Ubah schema → `npx drizzle-kit generate` (migrasi baru diterapkan otomatis).
+- Foto bukti disimpan di tabel `files` (bytea), bukan disk. `/api/health` untuk cek koneksi DB.
 - Seed dummy: `src/db/seed.ts` (tanggal relatif terhadap waktu seed). Password akun demo `relay123`.
+
+## Jebakan dev
+- Service worker PWA hanya didaftarkan di production. Bila pernah menjalankan build production di origin yang sama (mis. localhost:3000), SW lama bisa menyajikan CSS/JS basi di dev — `PwaRegister` otomatis melepasnya di dev, tapi sekali-sekalinya mungkin perlu hard refresh.
+- Hindari class arbitrary yang rumit (gradien + `#hex` + `%` di dalam `bg-[...]`); pindahkan ke `@utility` di `globals.css`.
 
 ## Cek visual
 Panel browser sering terlalu kecil. Pakai Chrome headless: buat `public/__preview.html` (iframe 390×844 per halaman, sama origin agar cookie jalan), buka lewat `/api/demo/login?as=<user>&to=/__preview.html?p=/a,/b`, `--screenshot`. Hapus file preview setelah selesai. Catatan: grafik Recharts bisa tampak kosong di headless (animasi).

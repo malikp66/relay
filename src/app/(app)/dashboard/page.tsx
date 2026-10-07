@@ -13,6 +13,7 @@ import { Avatar } from "@/components/relay/avatar-stack";
 import { LinkCard } from "@/components/relay/link-card";
 import { InstallCard } from "@/components/shell/pwa";
 import { SetupChecklist } from "@/components/relay/setup-checklist";
+import { HelpButton } from "@/components/tour/help-button";
 import { setupItems } from "@/server/setup";
 import { fmtLongDate, fmtTime } from "@/lib/format";
 import type { CSSProperties } from "react";
@@ -29,7 +30,10 @@ export default async function DashboardPage() {
     <div className="space-y-8">
       <div>
         <p className="text-sm text-muted-foreground">{fmtLongDate(new Date())}</p>
-        <h1 className="text-[26px] font-semibold tracking-[-0.02em]">Halo, {user.name.split(" ")[0]}</h1>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          <h1 className="text-[26px] font-semibold tracking-[-0.02em]">Halo, {user.name.split(" ")[0]}</h1>
+          <HelpButton className="translate-y-px" />
+        </div>
       </div>
       <SetupChecklist userId={user.id} role={user.role} items={setup} />
       {user.role !== "technician" && <InstallCard />}

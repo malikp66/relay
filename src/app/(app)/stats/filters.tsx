@@ -31,8 +31,9 @@ export function StatsFilters({ options }: { options: { groups: Opt[]; categories
 
   return (
     <div className={cn("flex flex-col gap-3 transition-opacity duration-200 lg:flex-row lg:items-center lg:justify-between", pending && "opacity-60")}>
+      <div data-tour="stats-range" className="w-full lg:w-[280px]">
       <SmoothTabs
-        className="w-full lg:w-[280px]"
+        className="w-full"
         value={params.get("range") ?? "30"}
         onChange={(v) => set("range", v === "30" ? null : v)}
         items={[
@@ -41,7 +42,8 @@ export function StatsFilters({ options }: { options: { groups: Opt[]; categories
           { id: "90", label: "90 hari" },
         ]}
       />
-      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-0.5 [scrollbar-width:none] max-lg:[mask-image:linear-gradient(to_right,transparent,black_16px,black_calc(100%-32px),transparent)] max-lg:pr-8 lg:mx-0 lg:px-0">
+      </div>
+      <div data-tour="stats-filters" className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-0.5 [scrollbar-width:none] max-lg:[mask-image:linear-gradient(to_right,transparent,black_16px,black_calc(100%-32px),transparent)] max-lg:pr-8 lg:mx-0 lg:px-0">
         {filters
           .filter(([, , o]) => o.length)
           .map(([k, label, opts]) => {

@@ -75,37 +75,48 @@ export function ReportPanel({ detail, editable }: { detail: TaskDetail; editable
       </div>
       {error && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">{error}</p>}
 
-      <div className="space-y-4 rounded-2xl border bg-card p-4">
-        {fields.map((f) => (
-          <div key={f.key} className="space-y-1.5">
-            <Label className="text-sm">
-              {f.label}
-              {f.required && <span className="text-red-500">*</span>}
-            </Label>
-            {editable ? (
+      {editable ? (
+        <div className="space-y-4 rounded-2xl border bg-card p-4 shadow-[var(--shadow-card)] sm:p-5">
+          {fields.map((f) => (
+            <div key={f.key} className="space-y-1.5">
+              <Label className="flex items-center gap-1.5 text-[13.5px]">
+                {f.label}
+                {f.required ? <span className="rounded bg-amber-500/10 px-1 text-[10.5px] font-medium text-amber-700 dark:text-amber-400">Wajib</span> : null}
+              </Label>
               <FieldInput field={f} value={values[f.key]} onChange={(v) => set(f.key, v)} />
-            ) : (
-              <p className="whitespace-pre-wrap text-sm text-foreground/90">{formatValue(values[f.key])}</p>
-            )}
-          </div>
-        ))}
-        <div className="space-y-1.5">
-          <Label className="text-sm">
-            Temuan / catatan akhir<span className="text-red-500">*</span>
-          </Label>
-          {editable ? (
-            <Textarea value={findings} onChange={(e) => {
+            </div>
+          ))}
+          <div className="space-y-1.5">
+            <Label className="flex items-center gap-1.5 text-[13.5px]">
+              Temuan / catatan akhir
+              <span className="rounded bg-amber-500/10 px-1 text-[10.5px] font-medium text-amber-700 dark:text-amber-400">Wajib</span>
+            </Label>
+            <Textarea
+              value={findings}
+              onChange={(e) => {
                 setFindings(e.target.value);
                 scheduleSave(values, e.target.value);
-              }} rows={3} className="rounded-xl text-base" placeholder="Ringkasan hasil pekerjaan dan hal yang perlu diperhatikan." />
-          ) : (
-            <p className="whitespace-pre-wrap text-sm text-foreground/90">{findings || "-"}</p>
-          )}
+              }}
+              rows={3}
+              className="rounded-xl text-base"
+              placeholder="Ringkasan hasil pekerjaan dan hal yang perlu diperhatikan."
+            />
+          </div>
         </div>
-      </div>
+      ) : (
+        /* Mode lihat: daftar definisi — label kecil, isi tegas, garis pemisah */
+        <dl className="divide-y overflow-hidden rounded-2xl border bg-card shadow-[var(--shadow-card)]">
+          {[...fields.map((f) => ({ key: f.key, label: f.label, value: formatValue(values[f.key]) })), { key: "__findings", label: "Temuan / catatan akhir", value: findings || "Belum diisi" }].map((row) => (
+            <div key={row.key} className="grid gap-1 px-4 py-3 sm:grid-cols-[200px_minmax(0,1fr)] sm:gap-4 sm:px-5">
+              <dt className="text-[12.5px] font-medium text-muted-foreground sm:pt-px">{row.label}</dt>
+              <dd className={cn("whitespace-pre-wrap text-[14px] leading-relaxed", row.value === "Belum diisi" ? "text-muted-foreground" : "text-foreground")}>{row.value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
 
-      <div className="rounded-2xl border bg-card p-4">
-        <p className="mb-3 text-sm font-medium">Bukti checklist</p>
+      <div className="rounded-2xl border bg-card p-4 shadow-[var(--shadow-card)] sm:p-5">
+        <p className="mb-3 text-[13px] font-medium text-muted-foreground">Bukti checklist</p>
         <div className="space-y-2">
           {evidence.map((i) => (
             <div key={i.id} className="flex items-start gap-3 text-sm">
@@ -136,7 +147,7 @@ export function ReportPanel({ detail, editable }: { detail: TaskDetail; editable
 function formatValue(v: unknown) {
   if (v === true) return "Ya";
   if (v === false) return "Tidak";
-  if (v === null || v === undefined || v === "") return "-";
+  if (v === null || v === undefined || v === "") return "Belum diisi";
   return String(v);
 }
 

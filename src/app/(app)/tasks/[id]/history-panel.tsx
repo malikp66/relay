@@ -76,7 +76,7 @@ export function HistoryPanel({ detail }: { detail: TaskDetail }) {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[14px] font-medium">{userName}</p>
                   <p className="tabular truncate text-[12.5px] text-muted-foreground">
-                    {fmtDateTime(a.checkInAt)} – {a.checkOutAt ? fmtTime(a.checkOutAt) : "sekarang"}
+                    {fmtDateTime(a.checkInAt)} s.d. {a.checkOutAt ? fmtTime(a.checkOutAt) : "sekarang"}
                     {a.distanceM != null ? ` · ${Math.round(a.distanceM)} m dari lokasi` : ""}
                   </p>
                 </div>

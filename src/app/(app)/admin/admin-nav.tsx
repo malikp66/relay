@@ -18,7 +18,7 @@ const ITEMS = [
 export function AdminNav() {
   const path = usePathname();
   return (
-    <nav className="flex gap-0.5 overflow-x-auto rounded-xl bg-foreground/[0.05] p-[3px] [scrollbar-width:none] max-lg:[mask-image:linear-gradient(to_right,black_calc(100%-28px),transparent)] max-lg:pr-6">
+    <nav data-tour="admin-nav" className="flex gap-0.5 overflow-x-auto rounded-xl bg-foreground/[0.05] p-[3px] [scrollbar-width:none] max-lg:[mask-image:linear-gradient(to_right,black_calc(100%-28px),transparent)] max-lg:pr-6">
       {ITEMS.map((it) => {
         const active = it.href === "/admin" ? path === "/admin" : path.startsWith(it.href);
         return (

@@ -27,11 +27,11 @@ export function OrgTree({ rootName, groups, categories, unassigned }: { rootName
         <div className="flex items-center gap-2 text-sm font-semibold">
           <Building2 className="size-4 text-primary" /> {rootName}
         </div>
-        <Button size="sm" variant="outline" className="h-8 rounded-lg bg-card shadow-[var(--shadow-card)]" onClick={() => setEdit({ categoryIds: [] })}>
+        <Button data-tour="groups-add" size="sm" variant="outline" className="h-8 rounded-lg bg-card shadow-[var(--shadow-card)]" onClick={() => setEdit({ categoryIds: [] })}>
           <Plus className="size-4" /> Crew
         </Button>
       </div>
-      <div className="relative space-y-4 border-l-2 border-dashed pl-4 md:grid md:grid-cols-2 md:gap-4 md:space-y-0">
+      <div data-tour="groups-tree" className="relative space-y-4 border-l-2 border-dashed pl-4 md:grid md:grid-cols-2 md:gap-4 md:space-y-0">
         {groups.map((g) => {
           const spv = g.members.filter((m) => m.memberRole === "supervisor");
           const tech = g.members.filter((m) => m.memberRole === "technician");
@@ -157,7 +157,7 @@ function MemberList({ title, members, onMove }: { title: string; members: Member
           <li key={m.id} className={cn("flex items-center gap-2.5 rounded-xl px-1 py-1", !m.isActive && "opacity-50")}>
             <Avatar id={m.id} name={m.name} size="sm" />
             <span className="flex-1 truncate text-sm">{m.name}</span>
-            <button onClick={() => onMove(m)} className="press rounded-lg px-2.5 py-1 text-[12.5px] font-medium text-muted-foreground transition-colors duration-150 hover:bg-foreground/[0.05] hover:text-foreground">
+            <button data-tour="groups-move" onClick={() => onMove(m)} className="press rounded-lg px-2.5 py-1 text-[12.5px] font-medium text-muted-foreground transition-colors duration-150 hover:bg-foreground/[0.05] hover:text-foreground">
               Pindah
             </button>
           </li>

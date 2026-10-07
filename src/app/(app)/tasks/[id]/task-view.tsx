@@ -1,12 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { notify } from "@/components/relay/notify";
 import {
-  ArrowLeft,
   CalendarClock,
+  ChevronRight,
   Clock3,
   CheckCheck,
   ClipboardCheck,
@@ -31,12 +30,13 @@ import type { Role } from "@/db/schema";
 import type { TaskDetail } from "@/server/queries";
 import { checkInAction, checkOutAction, transitionAction } from "@/app/actions/tasks";
 import { Callout } from "@/components/relay/callout";
+import { HelpButton } from "@/components/tour/help-button";
+import { BackButton } from "@/components/relay/back-button";
 import { HoldButton } from "@/components/relay/hold-button";
 import { BottomSheet } from "@/components/relay/bottom-sheet";
 import { SmoothTabs } from "@/components/relay/smooth-tabs";
 import { PriorityLabel, StatusBadge } from "@/components/relay/badges";
 import { Avatar } from "@/components/relay/avatar-stack";
-import { ProgressRing } from "@/components/relay/progress-ring";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { fmtDateTime, fmtTime, slaState } from "@/lib/format";
@@ -69,9 +69,7 @@ export function TaskView({ detail, perms, role, initialTab }: { detail: TaskDeta
   return (
     <div className="pb-24">
       <div className="mb-4 flex items-center gap-2">
-        <Link href="/tasks" className="-ml-2 flex size-10 items-center justify-center rounded-full hover:bg-muted" aria-label="Kembali">
-          <ArrowLeft className="size-5" />
-        </Link>
+        <BackButton fallback="/tasks" className="-ml-0.5 mr-1" />
         <button
           className="flex items-center gap-1.5 font-mono text-sm text-muted-foreground"
           onClick={() => {
@@ -81,7 +79,8 @@ export function TaskView({ detail, perms, role, initialTab }: { detail: TaskDeta
         >
           {t.code} <Copy className="size-3.5" />
         </button>
-        <span className="ml-auto">
+        <span className="ml-auto flex items-center gap-2">
+          <HelpButton />
           <StatusBadge status={t.status} />
         </span>
       </div>
@@ -93,7 +92,16 @@ export function TaskView({ detail, perms, role, initialTab }: { detail: TaskDeta
         <span>{detail.productName}</span>
         <span>·</span>
         <PriorityLabel level={detail.priority.level} name={detail.priority.name} />
-        {sla && <span className={cn("font-medium", sla.level === "overdue" ? "text-red-600" : sla.level === "soon" ? "text-amber-600" : "")}>· {sla.label}</span>}
+        {sla && (
+          <span
+            className={cn(
+              "tabular rounded-md px-1.5 py-0.5 text-[12px] font-medium leading-none",
+              sla.level === "overdue" ? "bg-red-500/10 text-red-600 dark:text-red-400" : sla.level === "soon" ? "bg-amber-500/10 text-amber-700 dark:text-amber-400" : "bg-foreground/[0.05] text-muted-foreground",
+            )}
+          >
+            {sla.label}
+          </span>
+        )}
       </div>
 
       <StatusStepper status={t.status} revisionCount={t.revisionCount} />
@@ -123,7 +131,7 @@ export function TaskView({ detail, perms, role, initialTab }: { detail: TaskDeta
         </div>
       ) : null}
 
-      <div className="sticky top-14 z-20 -mx-4 mt-5 bg-background/90 px-4 py-2 backdrop-blur-xl lg:-mx-8 lg:px-8">
+      <div data-tour="task-detail-tabs" className="sticky top-14 z-20 -mx-4 mt-5 bg-background/90 px-4 py-2 backdrop-blur-xl lg:-mx-8 lg:px-8">
         <SmoothTabs
           value={tab}
           onChange={setTab}
@@ -137,7 +145,7 @@ export function TaskView({ detail, perms, role, initialTab }: { detail: TaskDeta
       </div>
 
       <div className="mt-4">
-        {tab === "info" && <InfoPanel detail={detail} requiredDone={requiredDone} requiredTotal={required.length} />}
+        {tab === "info" && <InfoPanel detail={detail} requiredDone={requiredDone} requiredTotal={required.length} onOpenChecklist={() => setTab("checklist")} />}
         {tab === "checklist" && <ChecklistPanel items={detail.items} editable={perms.canEditChecklist} />}
         {tab === "report" && <ReportPanel detail={detail} editable={perms.canEditReport} />}
         {tab === "history" && <HistoryPanel detail={detail} />}
@@ -156,7 +164,7 @@ function StatusStepper({ status, revisionCount }: { status: string; revisionCoun
   if (status === "cancelled") return null;
   const idx = status === "revision" ? 4 : status === "approved" ? 5 : FLOW.indexOf(status as (typeof FLOW)[number]);
   return (
-    <div className="mt-4 flex items-center gap-1">
+    <div data-tour="task-stepper" className="mt-4 flex items-center gap-1">
       {FLOW.map((st, i) => (
         <div key={st} className="flex flex-1 flex-col gap-1.5">
           <div className={cn("h-1.5 rounded-full", i < idx ? "bg-primary" : i === idx ? (status === "revision" ? "bg-red-500" : "bg-primary") : "bg-muted")} />
@@ -171,37 +179,39 @@ function StatusStepper({ status, revisionCount }: { status: string; revisionCoun
 
 /* ───────────── Info ───────────── */
 
-function InfoPanel({ detail, requiredDone, requiredTotal }: { detail: TaskDetail; requiredDone: number; requiredTotal: number }) {
+function InfoPanel({ detail, requiredDone, requiredTotal, onOpenChecklist }: { detail: TaskDetail; requiredDone: number; requiredTotal: number; onOpenChecklist: () => void }) {
   const t = detail.task;
   const mapsUrl = detail.site ? `https://www.google.com/maps/dir/?api=1&destination=${detail.site.lat},${detail.site.lng}` : null;
+  const complete = requiredDone === requiredTotal;
+  const overdue = slaState(t.dueAt, t.status)?.level === "overdue";
   return (
-    <div className="grid gap-3 md:grid-cols-2">
+    <div className="space-y-3">
       {detail.site && (
-        <div className="rounded-2xl border bg-card p-4 md:col-span-2">
+        <div className="rounded-2xl border bg-card p-4 shadow-[var(--shadow-card)] sm:p-5">
           <div className="flex items-start gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted">
-              <MapPin className="size-5" />
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-foreground/[0.05]">
+              <MapPin className="size-[18px]" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="font-medium">{detail.customer?.name ?? detail.site.name}</p>
-              <p className="text-sm text-muted-foreground">{detail.site.address}</p>
+              <p className="text-[15px] font-semibold tracking-[-0.01em]">{detail.customer?.name ?? detail.site.name}</p>
+              <p className="text-[13.5px] leading-snug text-muted-foreground">{detail.site.address}</p>
               {detail.customer && (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {detail.customer.customerNo} · {detail.customer.service}
+                <p className="mt-1 text-[12.5px] text-muted-foreground">
+                  <span className="font-mono text-[12px]">{detail.customer.customerNo}</span> · {detail.customer.service}
                 </p>
               )}
             </div>
           </div>
-          <div className="mt-3 flex gap-2">
+          <div className="mt-3.5 flex gap-2">
             {mapsUrl && (
-              <Button asChild variant="outline" className="h-10 flex-1 rounded-xl">
+              <Button asChild variant="outline" className="h-10 flex-1 rounded-xl bg-card">
                 <a href={mapsUrl} target="_blank" rel="noreferrer">
                   <Navigation className="size-4" /> Navigasi
                 </a>
               </Button>
             )}
             {detail.customer?.phone && (
-              <Button asChild variant="outline" className="h-10 flex-1 rounded-xl">
+              <Button asChild variant="outline" className="h-10 flex-1 rounded-xl bg-card">
                 <a href={`tel:${detail.customer.phone.replace(/[^0-9+]/g, "")}`}>
                   <Phone className="size-4" /> Telepon
                 </a>
@@ -211,42 +221,56 @@ function InfoPanel({ detail, requiredDone, requiredTotal }: { detail: TaskDetail
         </div>
       )}
 
-      <div className="rounded-2xl border bg-card p-4">
-        <dl className="grid grid-cols-2 gap-x-3 gap-y-3 text-sm">
+      {/* Detail + progres checklist dalam satu kartu */}
+      <div className="overflow-hidden rounded-2xl border bg-card shadow-[var(--shadow-card)]">
+        <dl className="grid grid-cols-2 gap-px bg-border sm:grid-cols-3">
           <Field label="Jadwal" value={fmtDateTime(t.scheduledFor)} icon={CalendarClock} />
-          <Field label="Deadline (SLA)" value={fmtDateTime(t.dueAt)} icon={Flag} />
+          <Field label="Deadline (SLA)" value={fmtDateTime(t.dueAt)} icon={Flag} tone={overdue ? "danger" : undefined} />
           <Field label="Crew" value={detail.groupName} />
           <Field label="Dibuat oleh" value={detail.creatorName} />
-          <Field label="Mulai" value={t.startedAt ? fmtDateTime(t.startedAt) : "-"} />
-          <Field label="Job done" value={t.jobDoneAt ? fmtDateTime(t.jobDoneAt) : "-"} />
+          <Field label="Mulai" value={t.startedAt ? fmtDateTime(t.startedAt) : "Belum"} muted={!t.startedAt} />
+          <Field label="Job done" value={t.jobDoneAt ? fmtDateTime(t.jobDoneAt) : "Belum"} muted={!t.jobDoneAt} />
         </dl>
+        <button type="button" onClick={onOpenChecklist} className="group flex w-full items-center gap-3 border-t px-4 py-3 text-left outline-none transition-colors duration-150 hover:bg-foreground/[0.025] focus-visible:bg-foreground/[0.04] sm:px-5">
+          <ListChecks className="size-4 shrink-0 text-muted-foreground" />
+          <span className="shrink-0 text-[13px] font-medium">Item wajib</span>
+          <span className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-foreground/[0.07]">
+            <span className={cn("block h-full origin-left rounded-full transition-transform duration-500 ease-[var(--ease-out)]", complete ? "bg-emerald-500" : "bg-amber-500")} style={{ transform: `scaleX(${requiredTotal ? requiredDone / requiredTotal : 0})` }} />
+          </span>
+          <span className="tabular shrink-0 text-[13px] font-semibold">
+            {requiredDone}/{requiredTotal}
+          </span>
+          <span className={cn("hidden shrink-0 text-[12.5px] font-medium sm:inline", complete ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400")}>
+            {complete ? "Lengkap" : `${requiredTotal - requiredDone} tersisa`}
+          </span>
+          <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform duration-200 ease-[var(--ease-out)] group-hover:translate-x-0.5" />
+        </button>
       </div>
 
-      <div className="flex items-center gap-4 rounded-2xl border bg-card p-4">
-        <ProgressRing value={requiredDone} max={requiredTotal} size={68} />
-        <div className="text-sm">
-          <p className="font-medium">Item wajib checklist</p>
-          <p className="text-muted-foreground">{requiredDone === requiredTotal ? "Semua item wajib terpenuhi." : `${requiredTotal - requiredDone} item wajib belum terpenuhi.`}</p>
-        </div>
-      </div>
-
-      <div className="rounded-2xl border bg-card p-4 md:col-span-2">
-        <p className="mb-3 text-sm font-medium">Teknisi ditugaskan</p>
-        <ul className="space-y-2.5">
+      <div className="rounded-2xl border bg-card shadow-[var(--shadow-card)]">
+        <p className="px-4 pb-1 pt-3.5 text-[13px] font-medium text-muted-foreground sm:px-5">Teknisi ditugaskan</p>
+        <ul className="divide-y">
           {detail.assignees.map((a) => {
             const att = detail.attendance.filter((x) => x.a.userId === a.id).at(-1);
+            const onSite = att && !att.a.checkOutAt;
             return (
-              <li key={a.id} className="flex items-center gap-3">
+              <li key={a.id} className="flex items-center gap-3 px-4 py-3 sm:px-5">
                 <Avatar id={a.id} name={a.name} />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{a.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {att ? (att.a.checkOutAt ? `Check-in ${fmtTime(att.a.checkInAt)} – ${fmtTime(att.a.checkOutAt)}` : `Di lokasi sejak ${fmtTime(att.a.checkInAt)}`) : "Belum check-in"}
-                    {att?.a.isLate ? " · terlambat" : ""}
-                    {att?.a.withinGeofence === false ? " · di luar radius" : ""}
+                  <p className="truncate text-[14px] font-medium">{a.name}</p>
+                  <p className="tabular text-[12.5px] text-muted-foreground">
+                    {att ? (att.a.checkOutAt ? `Check-in ${fmtTime(att.a.checkInAt)} s.d. ${fmtTime(att.a.checkOutAt)}` : `Di lokasi sejak ${fmtTime(att.a.checkInAt)}`) : "Belum check-in"}
                   </p>
                 </div>
-                {att && !att.a.checkOutAt && <span className="size-2.5 rounded-full bg-blue-500" />}
+                <div className="flex shrink-0 flex-col items-end gap-0.5 text-[12px] font-medium">
+                  {onSite && (
+                    <span className="flex items-center gap-1.5 text-primary">
+                      <span className="size-1.5 rounded-full bg-primary" /> Di lokasi
+                    </span>
+                  )}
+                  {att?.a.isLate && <span className="text-amber-600 dark:text-amber-400">Terlambat</span>}
+                  {att?.a.withinGeofence === false && <span className="text-amber-600 dark:text-amber-400">Luar radius</span>}
+                </div>
               </li>
             );
           })}
@@ -254,23 +278,23 @@ function InfoPanel({ detail, requiredDone, requiredTotal }: { detail: TaskDetail
       </div>
 
       {t.description && (
-        <div className="rounded-2xl border bg-card p-4 md:col-span-2">
-          <p className="mb-1 text-sm font-medium">Deskripsi</p>
-          <p className="text-sm text-muted-foreground">{t.description}</p>
+        <div className="rounded-2xl border bg-card px-4 py-3.5 shadow-[var(--shadow-card)] sm:px-5">
+          <p className="text-[13px] font-medium text-muted-foreground">Deskripsi</p>
+          <p className="mt-1 text-[14px] leading-relaxed">{t.description}</p>
         </div>
       )}
     </div>
   );
 }
 
-function Field({ label, value, icon: Icon }: { label: string; value: React.ReactNode; icon?: React.ComponentType<{ className?: string }> }) {
+function Field({ label, value, icon: Icon, tone, muted }: { label: string; value: React.ReactNode; icon?: React.ComponentType<{ className?: string }>; tone?: "danger"; muted?: boolean }) {
   return (
-    <div>
-      <dt className="flex items-center gap-1 text-xs text-muted-foreground">
+    <div className="bg-card px-4 py-3 sm:px-5 sm:py-3.5">
+      <dt className="flex items-center gap-1.5 text-[12px] font-medium text-muted-foreground">
         {Icon && <Icon className="size-3.5" />}
         {label}
       </dt>
-      <dd className="mt-0.5 font-medium">{value}</dd>
+      <dd className={cn("tabular mt-1 text-[14.5px] font-semibold tracking-[-0.01em]", tone === "danger" && "text-red-600 dark:text-red-400", muted && "font-normal text-muted-foreground")}>{value}</dd>
     </div>
   );
 }
@@ -333,8 +357,9 @@ function ActionBar({ detail, perms, missing, goTab }: { detail: TaskDetail; perm
       content = (
         <div className="flex gap-2">
           {perms.openHere && (
-            <Button variant="outline" className="h-14 rounded-2xl px-4" disabled={pending} onClick={() => run(() => checkOutAction(t.id), "Check-out berhasil")}>
-              <LogOut className="size-4" />
+            <Button variant="outline" className="h-14 shrink-0 flex-col gap-0.5 rounded-2xl bg-card px-3.5 text-[11px] font-medium shadow-[var(--shadow-card)]" disabled={pending} onClick={() => run(() => checkOutAction(t.id), "Check-out berhasil")}>
+              <LogOut className="size-[18px]" />
+              Check-out
             </Button>
           )}
           {missing.length ? (
@@ -386,7 +411,7 @@ function ActionBar({ detail, perms, missing, goTab }: { detail: TaskDetail; perm
     <>
       {content && (
         <div className="fixed inset-x-0 bottom-16 z-30 border-t border-foreground/[0.06] bg-background/85 px-4 py-3 backdrop-blur-xl backdrop-saturate-150 lg:bottom-0 lg:left-[248px]">
-          <div className="mx-auto max-w-3xl">{content}</div>
+          <div data-tour="task-actions" className="mx-auto max-w-3xl">{content}</div>
         </div>
       )}
 

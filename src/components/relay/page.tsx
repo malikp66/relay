@@ -1,6 +1,8 @@
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { HelpButton } from "@/components/tour/help-button";
+import { BackButton } from "@/components/relay/back-button";
 
 /*
  * Primitive halaman. Ritme spasi:
@@ -10,11 +12,16 @@ import { cn } from "@/lib/utils";
  *  - padding kartu: 16px (mobile) / 20px (≥sm)
  */
 
-export function PageHeader({ title, subtitle, action, className }: { title: string; subtitle?: ReactNode; action?: ReactNode; className?: string }) {
+/** `back`: true (default) = tombol kembali otomatis; string = tujuan bila tidak ada riwayat; false = sembunyikan. */
+export function PageHeader({ title, subtitle, action, className, back = true }: { title: string; subtitle?: ReactNode; action?: ReactNode; className?: string; back?: boolean | string }) {
   return (
     <div className={cn("mb-6 flex items-end justify-between gap-4", className)}>
       <div className="min-w-0">
-        <h1 className="text-[26px] font-semibold leading-tight tracking-[-0.02em]">{title}</h1>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          {back ? <BackButton fallback={typeof back === "string" ? back : undefined} className="-ml-0.5" /> : null}
+          <h1 className="text-[26px] font-semibold leading-tight tracking-[-0.02em]">{title}</h1>
+          <HelpButton className="translate-y-px" />
+        </div>
         {subtitle ? <p className="mt-1 text-[14px] leading-snug text-muted-foreground">{subtitle}</p> : null}
       </div>
       {action ? <div className="shrink-0">{action}</div> : null}
@@ -22,9 +29,9 @@ export function PageHeader({ title, subtitle, action, className }: { title: stri
   );
 }
 
-export function Section({ title, description, action, count, children, className }: { title?: string; description?: string; action?: ReactNode; count?: number; children: ReactNode; className?: string }) {
+export function Section({ title, description, action, count, children, className, tour }: { title?: string; description?: string; action?: ReactNode; count?: number; children: ReactNode; className?: string; tour?: string }) {
   return (
-    <section className={cn("space-y-3", className)}>
+    <section data-tour={tour} className={cn("space-y-3", className)}>
       {title ? (
         <div className="flex items-end justify-between gap-3 px-0.5">
           <div className="min-w-0">

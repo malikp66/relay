@@ -1,7 +1,7 @@
 "use client";
 
-import { Check, Hash, Image as ImageIcon, Loader2 } from "lucide-react";
-import { useEffect, useRef, useState, useTransition, type CSSProperties } from "react";
+import { Check, Eye, Hash, Image as ImageIcon, Loader2 } from "lucide-react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { notify } from "@/components/relay/notify";
 import { saveChecklistResponseAction } from "@/app/actions/tasks";
 import { PhotoUploader } from "@/components/relay/photo-uploader";
@@ -11,6 +11,20 @@ import { fmtDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 type Item = TaskDetail["items"][number];
+
+/** Gaya kartu item — SAMA untuk tick/data/foto: border 1px, warna hijau tipis saat selesai, tanpa ring/bayangan offset. */
+const TYPE_HINT: Record<Item["type"], (unit: string | null) => string> = {
+  tick: () => "Centang bila sudah dikerjakan",
+  data: (unit) => `Isi data${unit ? ` · ${unit}` : ""}`,
+  photo: () => "Foto bukti",
+};
+
+function cardClass(done: boolean) {
+  return cn(
+    "rounded-2xl border bg-card p-4 shadow-[var(--shadow-card)] transition-[border-color,background-color] duration-200 ease-[var(--ease-out)]",
+    done && "check-done",
+  );
+}
 
 export function isItemDone(i: Item) {
   const r = i.response;
@@ -22,9 +36,29 @@ export function isItemDone(i: Item) {
 
 export function ChecklistPanel({ items, editable }: { items: Item[]; editable: boolean }) {
   if (!items.length) return <p className="text-sm text-muted-foreground">Checklist kosong.</p>;
+  const done = items.filter(isItemDone).length;
+  const requiredLeft = items.filter((i) => i.required && !isItemDone(i)).length;
   return (
     <div className="space-y-2.5">
-      {!editable && <p className="text-xs text-muted-foreground">Mode lihat. Checklist hanya bisa diisi teknisi yang ditugaskan setelah check-in.</p>}
+      <div className="rounded-2xl border bg-card px-4 py-3.5 shadow-[var(--shadow-card)]">
+        <div className="flex items-baseline justify-between gap-3">
+          <p className="text-[14px] font-semibold">
+            <span className="tabular">{done}</span> dari <span className="tabular">{items.length}</span> selesai
+          </p>
+          <p className={cn("text-[12.5px] font-medium", requiredLeft ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400")}>
+            {requiredLeft ? `${requiredLeft} item wajib tersisa` : "Semua item wajib terpenuhi"}
+          </p>
+        </div>
+        <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-foreground/[0.07]">
+          <div className="h-full origin-left rounded-full bg-emerald-500 transition-transform duration-500 ease-[var(--ease-out)]" style={{ transform: `scaleX(${done / items.length})` }} />
+        </div>
+        {!editable && (
+          <p className="mt-3 flex items-start gap-2 border-t pt-3 text-[12.5px] leading-relaxed text-muted-foreground">
+            <Eye className="mt-[2px] size-3.5 shrink-0" />
+            Mode lihat. Checklist hanya bisa diisi teknisi yang ditugaskan setelah check-in di lokasi.
+          </p>
+        )}
+      </div>
       {items.map((it, i) => (
         <ChecklistItemCard key={it.id} item={it} index={i + 1} editable={editable} />
       ))}
@@ -67,16 +101,29 @@ function ChecklistItemCard({ item, index, editable }: { item: Item; index: numbe
       </span>
       <div className="min-w-0 flex-1 text-left">
         <p className={cn("text-[15px] font-medium leading-snug transition-colors duration-200", done && item.type === "tick" && "text-muted-foreground")}>
-          <span className="mr-1 text-muted-foreground">{index}.</span>
+          <span className="tabular mr-1.5 text-muted-foreground">{index}.</span>
           {item.label}
-          {item.required ? <span className="ml-1 text-red-500">*</span> : <span className="ml-1.5 text-xs font-normal text-muted-foreground">opsional</span>}
         </p>
-        {done && item.completedByName && (
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {item.completedByName} · {fmtDateTime(item.response?.completedAt)}
-          </p>
-        )}
+        <p className="mt-0.5 text-[12.5px] text-muted-foreground">
+          {done && item.completedByName ? (
+            <>
+              {item.completedByName} · {fmtDateTime(item.response?.completedAt)}
+            </>
+          ) : (
+            TYPE_HINT[item.type](item.unit)
+          )}
+        </p>
       </div>
+      {!done && (
+        <span
+          className={cn(
+            "mt-0.5 shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-medium leading-none",
+            item.required ? "bg-amber-500/10 text-amber-700 ring-1 ring-inset ring-amber-500/20 dark:text-amber-400" : "bg-foreground/[0.05] text-muted-foreground",
+          )}
+        >
+          {item.required ? "Wajib" : "Opsional"}
+        </span>
+      )}
     </div>
   );
 
@@ -86,9 +133,14 @@ function ChecklistItemCard({ item, index, editable }: { item: Item; index: numbe
         type="button"
         disabled={!editable || pending}
         onClick={() => save({ checked: !item.response?.checked })}
-        data-selected={done}
-        style={{ "--tint": "#10b981" } as CSSProperties}
-        className={cn("card-interactive block w-full rounded-2xl p-4 outline-none", !editable && "pointer-events-none")}
+        aria-pressed={done}
+        className={cn(
+          cardClass(done),
+          "block w-full text-left outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40",
+          editable ? "transition-[border-color,background-color,transform] active:scale-[0.99]" : "pointer-events-none",
+          editable && !done && "hover:border-foreground/20",
+          
+        )}
       >
         {header}
       </button>
@@ -96,14 +148,9 @@ function ChecklistItemCard({ item, index, editable }: { item: Item; index: numbe
   }
 
   return (
-    <div
-      className={cn(
-        "rounded-2xl border bg-card p-4 shadow-[var(--shadow-card)] transition-[border-color,background-color] duration-200",
-        done && "border-emerald-500/40 bg-[linear-gradient(180deg,color-mix(in_oklab,#10b981_7%,transparent),transparent_75%)]",
-      )}
-    >
+    <div className={cardClass(done)}>
       {header}
-      <div className="mt-3 pl-10">
+      <div className="mt-3 pl-[38px]">
         {item.type === "data" ? (
           editable ? (
             <div className="relative">
@@ -124,7 +171,19 @@ function ChecklistItemCard({ item, index, editable }: { item: Item; index: numbe
               {item.unit && <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">{item.unit}</span>}
             </div>
           ) : (
-            <p className="tabular text-lg font-semibold">{item.response?.value ? `${item.response.value} ${item.unit ?? ""}` : <span className="text-sm font-normal text-muted-foreground">Belum diisi</span>}</p>
+            <div
+              className={cn(
+                "flex h-11 items-center justify-between gap-3 rounded-xl px-3.5",
+                item.response?.value ? "bg-foreground/[0.035]" : "border border-dashed border-foreground/15 bg-foreground/[0.015]",
+              )}
+            >
+              {item.response?.value ? (
+                <span className="tabular text-[17px] font-semibold tracking-[-0.01em]">{item.response.value}</span>
+              ) : (
+                <span className="text-[13.5px] text-muted-foreground">Belum diisi</span>
+              )}
+              {item.unit && <span className="text-[13px] text-muted-foreground">{item.unit}</span>}
+            </div>
           )
         ) : (
           <PhotoUploader photos={item.response?.photos ?? []} disabled={!editable} onChange={(photos) => save({ photos })} />

@@ -16,7 +16,7 @@ export default async function AdminHome() {
   const [users, groups, sites, customers, tasks, tpls] = await Promise.all([count(s.users), count(s.groups), count(s.sites), count(s.customers), count(s.tasks), count(s.checklistTemplates)]);
   return (
     <div className="space-y-5">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div data-tour="admin-cards" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <LinkCard href="/admin/users" icon={Users} color="#2563eb" title="User" description="Akun, role, dan keanggotaan crew. Reset password & nonaktifkan." meta={<Count n={users} />} />
         <LinkCard href="/admin/groups" icon={Building2} color="#7c3aed" title="Crew & org tree" description="Struktur crew, supervisor, teknisi, dan kategori yang ditangani." meta={<Count n={groups - 1} />} />
         <LinkCard href="/admin/locations" icon={MapPin} color="#e11d48" title="Lokasi & pelanggan" description={`Site dengan titik peta & radius check-in. ${customers} pelanggan.`} meta={<Count n={sites} />} />
@@ -24,8 +24,8 @@ export default async function AdminHome() {
         <LinkCard href="/admin/master" icon={Database} color="#059669" title="Referensi" description="Kategori, produk, prioritas, dan target SLA." />
         <LinkCard href="/admin/audit" icon={ScrollText} color="#475569" title="Audit log" description="Jejak setiap perubahan master data oleh Admin." />
       </div>
-      <Alert tone="warning" title="Mode demo" action={<ResetDemoButton />}>
-        Data saat ini adalah data dummy ({tasks} task). Reset untuk mengembalikan semua data ke kondisi awal — semua sesi login akan keluar.
+      <Alert tone="warning" title="Mode demo" action={<span data-tour="admin-reset" className="inline-block"><ResetDemoButton /></span>}>
+        Data saat ini adalah data dummy ({tasks} task). Reset untuk mengembalikan semua data ke kondisi awal. Semua sesi login akan keluar.
       </Alert>
     </div>
   );

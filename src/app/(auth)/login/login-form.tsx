@@ -17,11 +17,11 @@ export function LoginForm() {
       <form action={action} className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="username">Username</Label>
-          <Input id="username" name="username" autoComplete="username" autoCapitalize="none" placeholder="mis. tek.andi" className="h-12 rounded-xl" required />
+          <Input key={state?.username ?? ""} id="username" name="username" defaultValue={state?.username} autoComplete="username" autoCapitalize="none" placeholder="mis. tek.andi" className="h-12 rounded-xl" required />
         </div>
         <div className="space-y-2">
           <Label htmlFor="password">Password</Label>
-          <Input id="password" name="password" type="password" autoComplete="current-password" className="h-12 rounded-xl" required />
+          <Input id="password" name="password" type="password" autoComplete="current-password" autoFocus={!!state?.error} className="h-12 rounded-xl" required />
         </div>
         {state?.error && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">{state.error}</p>}
         <Button type="submit" disabled={pending} className="h-12 w-full rounded-xl text-[15px]">

@@ -41,7 +41,7 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
         subtitle={user.role === "supervisor" ? user.groupNames.join(", ") : user.role === "admin" ? "Semua crew" : "Task yang ditugaskan ke kamu"}
         action={
           canCreate ? (
-            <Button asChild className="hidden h-10 rounded-xl md:inline-flex">
+            <Button asChild data-tour="task-create" className="hidden h-10 rounded-xl md:inline-flex">
               <Link href="/tasks/new">
                 <Plus className="size-4" /> Buat task
               </Link>
@@ -63,7 +63,7 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
       />
       <div className="mt-4">
         {tasks.length ? (
-          <div className="grid gap-3 md:grid-cols-2">
+          <div data-tour="task-list" className="grid gap-3 md:grid-cols-2">
             {tasks.map((t) => (
               <TaskCard key={t.id} task={t} showGroup={user.role === "admin"} />
             ))}
@@ -73,7 +73,7 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
         )}
       </div>
       {canCreate && (
-        <Link href="/tasks/new" aria-label="Buat task" className="press fixed bottom-24 right-4 z-30 flex size-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-[inset_0_1px_0_rgb(255_255_255/0.2),0_8px_20px_-4px_color-mix(in_oklab,var(--primary)_55%,transparent)] md:hidden">
+        <Link href="/tasks/new" data-tour="task-create" aria-label="Buat task" className="press fixed bottom-24 right-4 z-30 flex size-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-[inset_0_1px_0_rgb(255_255_255/0.2),0_8px_20px_-4px_color-mix(in_oklab,var(--primary)_55%,transparent)] md:hidden">
           <Plus className="size-6" />
         </Link>
       )}

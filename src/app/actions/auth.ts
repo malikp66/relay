@@ -6,16 +6,16 @@ import { redirect } from "next/navigation";
 import { getDb, schema as s } from "@/db";
 import { createSession, destroySession, requireUser } from "@/server/auth";
 
-export type ActionState = { ok?: boolean; error?: string; message?: string } | undefined;
+export type ActionState = { ok?: boolean; error?: string; message?: string; username?: string } | undefined;
 
 export async function loginAction(_: ActionState, formData: FormData): Promise<ActionState> {
   const username = String(formData.get("username") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
-  if (!username || !password) return { error: "Username dan password wajib diisi." };
+  if (!username || !password) return { error: "Username dan password wajib diisi.", username };
   const db = await getDb();
   const [user] = await db.select().from(s.users).where(eq(s.users.username, username));
   if (!user || !user.isActive || !(await bcrypt.compare(password, user.passwordHash))) {
-    return { error: "Username atau password salah." };
+    return { error: "Username atau password salah.", username };
   }
   await createSession(user.id);
   redirect("/dashboard");

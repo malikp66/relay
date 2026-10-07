@@ -72,7 +72,7 @@ export function SetupChecklist({ userId, role, items }: { userId: string; role: 
           {
             id: "location",
             title: "Izinkan akses lokasi",
-            description: device.geo === "denied" ? "Akses ditolak — aktifkan lewat pengaturan browser." : "Dibutuhkan untuk check-in di lokasi pelanggan.",
+            description: device.geo === "denied" ? "Akses ditolak. Aktifkan lewat pengaturan browser." : "Dibutuhkan untuk check-in di lokasi pelanggan.",
             href: "#",
             done: device.geo === "granted",
             icon: MapPin,

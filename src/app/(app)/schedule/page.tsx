@@ -69,7 +69,7 @@ export default async function SchedulePage({ searchParams }: PageProps<"/schedul
 
       <div className="grid gap-6 lg:grid-cols-[296px_minmax(0,1fr)] lg:grid-rows-[auto_1fr] lg:items-start lg:gap-x-8 lg:gap-y-6">
         {/* ───── Mini kalender ───── */}
-        <section className="rounded-2xl border bg-card p-3 shadow-[var(--shadow-card)] lg:col-start-1 lg:row-start-1">
+        <section data-tour="sched-calendar" className="rounded-2xl border bg-card p-3 shadow-[var(--shadow-card)] lg:col-start-1 lg:row-start-1">
           <div className="mb-2 flex items-center gap-1 pl-2">
             <h2 className="flex-1 text-[15px] font-semibold tracking-[-0.01em]">{label(firstOfMonth, { month: "long", year: "numeric" })}</h2>
             {selected !== today && (
@@ -128,16 +128,18 @@ export default async function SchedulePage({ searchParams }: PageProps<"/schedul
         </section>
 
         {/* ───── Agenda minggu ───── */}
-        <section className="min-w-0 lg:col-start-2 lg:row-span-2 lg:row-start-1">
+        <section data-tour="sched-agenda" className="min-w-0 lg:col-start-2 lg:row-span-2 lg:row-start-1">
           <div className="mb-3 flex items-center gap-2">
             <div className="min-w-0 flex-1">
               <h2 className="text-[17px] font-semibold tracking-[-0.01em]">
-                {label(weekStart, { day: "numeric", month: weekStart.slice(5, 7) === weekDays[6].slice(5, 7) ? undefined : "short" })} – {label(weekDays[6], { day: "numeric", month: "short", year: "numeric" })}
+                {label(weekStart, { day: "numeric", month: weekStart.slice(5, 7) === weekDays[6].slice(5, 7) ? undefined : "short" })} s.d. {label(weekDays[6], { day: "numeric", month: "short", year: "numeric" })}
               </h2>
               <p className="text-xs text-muted-foreground">{weekCount ? `${weekCount} jadwal minggu ini` : "Tidak ada jadwal minggu ini"}</p>
             </div>
-            <NavArrow href={href(addDays(selected, -7))} label="Minggu sebelumnya" dir="left" bordered />
-            <NavArrow href={href(addDays(selected, 7))} label="Minggu berikutnya" dir="right" bordered />
+            <div data-tour="sched-weeknav" className="flex gap-2">
+              <NavArrow href={href(addDays(selected, -7))} label="Minggu sebelumnya" dir="left" bordered />
+              <NavArrow href={href(addDays(selected, 7))} label="Minggu berikutnya" dir="right" bordered />
+            </div>
           </div>
 
           <ol className="overflow-hidden rounded-2xl border bg-card shadow-[var(--shadow-card)]">
@@ -219,7 +221,7 @@ export default async function SchedulePage({ searchParams }: PageProps<"/schedul
 
         {/* ───── Rencana berulang ───── */}
         {(user.role !== "technician" || plans.length > 0) && (
-          <section className="lg:col-start-1 lg:row-start-2">
+          <section data-tour="sched-plans" className="lg:col-start-1 lg:row-start-2">
             <h2 className="mb-2 px-1 text-[13px] font-medium text-muted-foreground">Maintenance berulang</h2>
             {plans.length ? (
               <ul className="divide-y overflow-hidden rounded-2xl border bg-card shadow-[var(--shadow-card)]">

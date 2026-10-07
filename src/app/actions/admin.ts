@@ -241,6 +241,24 @@ export async function moveTemplateItemAction(itemId: string, dir: -1 | 1): Promi
   }
 }
 
+/** Simpan urutan baru hasil drag & drop (ids = urutan lengkap item template). */
+export async function reorderTemplateItemsAction(templateId: string, ids: string[]): Promise<Result> {
+  try {
+    const user = await requireUser(["admin", "supervisor"]);
+    const db = await getDb();
+    const rows = await db.select({ id: s.checklistTemplateItems.id }).from(s.checklistTemplateItems).where(eq(s.checklistTemplateItems.templateId, templateId));
+    const known = new Set(rows.map((r) => r.id));
+    if (ids.length !== known.size || ids.some((id) => !known.has(id))) return { ok: false, error: "Urutan tidak valid, muat ulang halaman." };
+    await db.transaction(async (tx) => {
+      for (const [i, id] of ids.entries()) await tx.update(s.checklistTemplateItems).set({ sort: i }).where(eq(s.checklistTemplateItems.id, id));
+    });
+    await audit(user.id, "checklist_template", "reorder", "Mengubah urutan item", templateId);
+    return done();
+  } catch (e) {
+    return fail(e);
+  }
+}
+
 /* ───────────── Demo ───────────── */
 
 export async function resetDemoAction(): Promise<Result> {

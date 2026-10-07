@@ -9,12 +9,12 @@ import { createContext, useCallback, useContext, useEffect, useLayoutEffect, use
 import { createPortal } from "react-dom";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import type { Role } from "@/db/schema";
-import { TOURS, TOUR_VERSION, type TourStep } from "@/lib/tour";
+import { PAGE_TOURS, TOURS, TOUR_VERSION, type TourStep } from "@/lib/tour";
 import { CloseButton } from "@/components/relay/icon-button";
 import { cn } from "@/lib/utils";
 
-type Ctx = { start: () => void; active: boolean };
-const TourCtx = createContext<Ctx>({ start: () => {}, active: false });
+type Ctx = { start: () => void; startPage: () => void; hasPageTour: boolean; active: boolean };
+const TourCtx = createContext<Ctx>({ start: () => {}, startPage: () => {}, hasPageTour: false, active: false });
 export const useTour = () => useContext(TourCtx);
 
 const storageKey = (userId: string) => `relay-tour-${TOUR_VERSION}:${userId}`;
@@ -26,38 +26,60 @@ export const tourDone = (userId: string) => {
   }
 };
 
+/** Langkah yang targetnya ada & terlihat di layar (langkah tanpa target selalu ikut). */
+function availableSteps(steps: TourStep[]) {
+  return steps.filter((st) => !st.target || findTarget(st.target));
+}
+
 export function TourProvider({ userId, role, children }: { userId: string; role: Role; children: ReactNode }) {
-  const steps = TOURS[role];
-  const [index, setIndex] = useState<number | null>(null);
+  const [tour, setTour] = useState<{ steps: TourStep[]; index: number; welcome: boolean; path: string } | null>(null);
   const path = usePathname();
   const router = useRouter();
+  const pageTour = PAGE_TOURS.find((t) => t.match(path));
 
-  const finish = useCallback(() => {
-    try {
-      localStorage.setItem(storageKey(userId), "done");
-    } catch {}
-    window.dispatchEvent(new Event("relay-tour-done"));
-    setIndex(null);
+  const close = useCallback(() => {
+    setTour((t) => {
+      if (t?.welcome) {
+        try {
+          localStorage.setItem(storageKey(userId), "done");
+        } catch {}
+        window.dispatchEvent(new Event("relay-tour-done"));
+      }
+      return null;
+    });
   }, [userId]);
 
+  /** Tur perkenalan per role (di Beranda). */
   const start = useCallback(() => {
     if (path !== "/dashboard") router.push("/dashboard");
-    setIndex(0);
-  }, [path, router]);
+    setTimeout(() => setTour({ steps: availableSteps(TOURS[role]), index: 0, welcome: true, path: "/dashboard" }), path === "/dashboard" ? 0 : 600);
+  }, [path, router, role]);
 
-  // auto-start sekali di beranda
+  /** Tur halaman saat ini (tombol Panduan). */
+  const startPage = useCallback(() => {
+    if (path === "/dashboard" || !pageTour) return start();
+    const steps = availableSteps(pageTour.steps);
+    if (steps.length) setTour({ steps, index: 0, welcome: false, path });
+  }, [path, pageTour, start]);
+
+  // auto-start tur perkenalan sekali di beranda
   useEffect(() => {
     if (path !== "/dashboard" || tourDone(userId)) return;
-    const t = setTimeout(() => setIndex((i) => i ?? 0), 700);
+    const t = setTimeout(() => setTour((cur) => cur ?? { steps: availableSteps(TOURS[role]), index: 0, welcome: true, path: "/dashboard" }), 700);
     return () => clearTimeout(t);
-  }, [path, userId]);
+  }, [path, userId, role]);
 
-  const value = useMemo(() => ({ start, active: index !== null }), [start, index]);
+  // tur halaman otomatis tidak tampil lagi bila user pindah halaman
+  const visible = tour && tour.steps.length > 0 && (tour.welcome || tour.path === path);
+
+  const value = useMemo(() => ({ start, startPage, hasPageTour: path === "/dashboard" || !!pageTour, active: !!visible }), [start, startPage, path, pageTour, visible]);
 
   return (
     <TourCtx.Provider value={value}>
       {children}
-      {index !== null && <TourOverlay steps={steps} index={index} onIndex={setIndex} onClose={finish} />}
+      {visible && (
+        <TourOverlay steps={tour.steps} index={tour.index} onIndex={(i) => setTour((t) => (t ? { ...t, index: i } : t))} onClose={close} />
+      )}
     </TourCtx.Provider>
   );
 }
@@ -86,14 +108,22 @@ function TourOverlay({ steps, index, onIndex, onClose }: { steps: TourStep[]; in
   useLayoutEffect(() => {
     let raf = 0;
     const el = findTarget(step.target);
-    if (el) el.scrollIntoView({ block: "center", behavior: "smooth" });
+    if (el) {
+      // elemen tinggi → gulir ke bagian atasnya (di bawah header sticky); elemen kecil → ke tengah
+      const tall = el.getBoundingClientRect().height > window.innerHeight * 0.55;
+      el.style.scrollMarginTop = "76px";
+      el.scrollIntoView({ block: tall ? "start" : "center", behavior: "smooth" });
+    }
     const measure = () => {
       setVw(window.innerWidth);
       setVh(window.innerHeight);
       const t = findTarget(step.target);
       if (!t) return setRect(null);
       const r = t.getBoundingClientRect();
-      setRect({ top: r.top - PAD, left: r.left - PAD, width: r.width + PAD * 2, height: r.height + PAD * 2 });
+      // potong spotlight agar tetap di dalam layar (di bawah header, di atas tepi bawah)
+      const top = Math.max(r.top - PAD, 8);
+      const bottom = Math.min(r.bottom + PAD, window.innerHeight - 8);
+      setRect({ top, left: r.left - PAD, width: r.width + PAD * 2, height: Math.max(bottom - top, 24) });
     };
     const loop = () => {
       measure();
@@ -101,7 +131,7 @@ function TourOverlay({ steps, index, onIndex, onClose }: { steps: TourStep[]; in
     };
     // ukur terus selama ~600ms (menunggu smooth scroll), lalu hanya saat resize/scroll
     loop();
-    const stop = setTimeout(() => cancelAnimationFrame(raf), 650);
+    const stop = setTimeout(() => cancelAnimationFrame(raf), 900);
     window.addEventListener("resize", measure);
     window.addEventListener("scroll", measure, true);
     return () => {
@@ -135,7 +165,8 @@ function TourOverlay({ steps, index, onIndex, onClose }: { steps: TourStep[]; in
   if (rect) {
     const below = rect.top + rect.height + 12;
     const above = rect.top - cardH - 12;
-    const top = below + cardH < vh - 16 ? below : Math.max(16, above);
+    // di bawah target bila muat; kalau tidak di atasnya; kalau dua-duanya tidak muat (target setinggi layar) → menempel di bawah layar
+    const top = below + cardH < vh - 16 ? below : above >= 16 ? above : Math.max(16, vh - cardH - 84);
     const left = Math.min(Math.max(16, rect.left + rect.width / 2 - cardW / 2), vw - cardW - 16);
     cardStyle = { width: cardW, left, top };
   }

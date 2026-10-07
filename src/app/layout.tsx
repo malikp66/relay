@@ -1,13 +1,18 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { THEME_SCRIPT } from "@/components/shell/theme";
 import { PwaRegister } from "@/components/shell/pwa";
 import { AlertProvider } from "@/components/relay/alert";
 import "./globals.css";
 
-const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
-const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
+/**
+ * Tipografi Relay:
+ * - Plus Jakarta Sans — dirancang untuk identitas kota Jakarta; geometris-humanis, hangat, sangat terbaca di HP.
+ * - JetBrains Mono — untuk kode task & angka teknis (TS-2610-0004, -22 dBm).
+ */
+const sans = Plus_Jakarta_Sans({ variable: "--font-sans-family", subsets: ["latin"], display: "swap" });
+const mono = JetBrains_Mono({ variable: "--font-mono-family", subsets: ["latin"], display: "swap" });
 
 export const metadata: Metadata = {
   title: { default: "Relay", template: "%s · Relay" },
@@ -29,7 +34,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="id" suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable} h-full`}>
+    <html lang="id" suppressHydrationWarning className={`${sans.variable} ${mono.variable} h-full`}>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>

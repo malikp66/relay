@@ -5,7 +5,7 @@
  * Diadaptasi dari KokonutUI File Upload (MIT) — https://kokonutui.com
  */
 import { AnimatePresence, motion } from "motion/react";
-import { Camera, Loader2 } from "lucide-react";
+import { Camera, ImageOff, Loader2 } from "lucide-react";
 import { CloseButton } from "./icon-button";
 import { useRef, useState } from "react";
 import { notify } from "./notify";
@@ -84,7 +84,14 @@ export function PhotoUploader({ photos, onChange, disabled, max = 6 }: { photos:
             </motion.div>
           ))}
         </AnimatePresence>
-        {disabled && !photos.length && <p className="text-sm text-muted-foreground">Belum ada foto.</p>}
+        {disabled && !photos.length && (
+          <div className="flex items-center gap-3">
+            <span className="flex size-20 flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-foreground/15 bg-foreground/[0.015] text-muted-foreground/70">
+              <ImageOff className="size-5" strokeWidth={1.75} />
+            </span>
+            <span className="text-[13.5px] text-muted-foreground">Belum ada foto bukti</span>
+          </div>
+        )}
         {!disabled && photos.length < max && (
           <button
             type="button"

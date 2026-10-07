@@ -4,6 +4,8 @@ import { getDb, schema as s, type DB } from "@/db";
 import type { ReportField, TaskStatus } from "@/db/schema";
 import type { CurrentUser } from "./auth";
 import { canManageTask, isAssignee } from "./policy";
+import { notifyTask } from "./notifications";
+import type { NotificationKind } from "@/db/schema";
 
 /**
  * State machine task (RENCANA §6). Semua perubahan status lewat sini.
@@ -11,6 +13,16 @@ import { canManageTask, isAssignee } from "./policy";
 export type TransitionAction = "job_done" | "submit" | "resubmit" | "start_review" | "approve" | "request_revision" | "cancel";
 
 export class WorkflowError extends Error {}
+
+const NOTIFY: Record<TransitionAction, NotificationKind> = {
+  job_done: "job_done",
+  submit: "report_submitted",
+  resubmit: "report_resubmitted",
+  start_review: "review_started",
+  approve: "task_approved",
+  request_revision: "revision_requested",
+  cancel: "task_cancelled",
+};
 
 const ACTIONS: Record<TransitionAction, { from: TaskStatus[]; to: TaskStatus; actor: "assignee" | "manager" }> = {
   job_done: { from: ["in_progress"], to: "job_done", actor: "assignee" },
@@ -144,6 +156,8 @@ export async function transition(user: CurrentUser, taskId: string, action: Tran
     await db.update(s.attendances).set({ checkOutAt: now, autoClosed: true }).where(and(eq(s.attendances.taskId, taskId), isNull(s.attendances.checkOutAt)));
     await db.insert(s.taskEvents).values({ taskId, actorId: null, type: "status", fromStatus: "approved", toStatus: "finished", note: "Ditutup otomatis oleh sistem" });
   }
+
+  await notifyTask(NOTIFY[action], taskId, { id: user.id, name: user.name }, payload.comments?.trim() || null);
 }
 
 async function insertReview(db: DB, taskId: string, reviewerId: string, decision: "approve" | "revision", comments: string | null) {

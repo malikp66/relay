@@ -1,37 +1,51 @@
 import { cn } from "@/lib/utils";
 
 /**
- * Daftar bar horizontal (gaya Vercel/Tremor "BarList"): label & angka di atas bar latar.
- * Lebih mudah dibaca di HP daripada chart batang.
+ * Daftar bar horizontal (gaya Vercel/Tremor "BarList").
+ * Tiap baris: label + angka di satu garis, lalu bar tipis bertumpuk di bawahnya
+ * (nilai utama solid, nilai kedua lebih pudar) — angka tidak pernah tertimpa bar.
  */
 export function BarList({ items, valueLabel = "selesai", secondaryLabel }: { items: { label: string; value: number; secondary?: number }[]; valueLabel?: string; secondaryLabel?: string }) {
   const max = Math.max(...items.map((i) => i.value + (i.secondary ?? 0)), 1);
+  const stacked = items.some((i) => i.secondary !== undefined);
   return (
-    <ul className="space-y-1.5">
-      {items.map((it) => {
-        const total = it.value + (it.secondary ?? 0);
-        return (
-          <li key={it.label} className="relative flex h-9 items-center overflow-hidden rounded-lg px-3 text-[13px]">
-            <span aria-hidden className="absolute inset-y-0 left-0 rounded-lg bg-foreground/[0.04]" style={{ width: `${(total / max) * 100}%` }} />
-            <span aria-hidden className="absolute inset-y-0 left-0 rounded-lg bg-primary/[0.14]" style={{ width: `${(it.value / max) * 100}%` }} />
-            <span className="relative flex-1 truncate font-medium">{it.label}</span>
-            <span className="tabular relative ml-3 shrink-0 font-semibold">{it.value}</span>
-            {it.secondary !== undefined && <span className={cn("tabular relative ml-2 w-14 shrink-0 text-right text-muted-foreground")}>+{it.secondary}</span>}
-          </li>
-        );
-      })}
-      <li className="flex justify-end gap-3 px-3 pt-1 text-[11px] text-muted-foreground">
+    <div>
+      <ul className="space-y-3.5">
+        {items.map((it) => {
+          const sec = it.secondary ?? 0;
+          const total = it.value + sec;
+          return (
+            <li key={it.label}>
+              <div className="flex items-baseline justify-between gap-3 text-[13px]">
+                <span className="min-w-0 truncate font-medium">{it.label}</span>
+                <span className="tabular shrink-0 text-muted-foreground">
+                  <span className="font-semibold text-foreground">{it.value}</span>
+                  {stacked && <span>/{total}</span>}
+                </span>
+              </div>
+              <div className="mt-1.5 h-2 rounded-full bg-foreground/[0.05]">
+                <div className="flex h-full gap-0.5" style={{ width: `${(total / max) * 100}%` }}>
+                  {it.value > 0 && <span className="h-full rounded-full bg-primary" style={{ flexGrow: it.value }} />}
+                  {sec > 0 && <span className="h-full rounded-full bg-primary/25" style={{ flexGrow: sec }} />}
+                </div>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+      <div className={cn("mt-4 flex items-center gap-4 border-t pt-3 text-[12px] text-muted-foreground")}>
         <span className="flex items-center gap-1.5">
-          <span className="size-2 rounded-sm bg-primary/40" />
+          <span className="h-2 w-3 rounded-full bg-primary" />
           {valueLabel}
         </span>
         {secondaryLabel && (
           <span className="flex items-center gap-1.5">
-            <span className="size-2 rounded-sm bg-foreground/15" />
+            <span className="h-2 w-3 rounded-full bg-primary/25" />
             {secondaryLabel}
           </span>
         )}
-      </li>
-    </ul>
+        {stacked && <span className="ml-auto tabular">{valueLabel.toLowerCase()} / total</span>}
+      </div>
+    </div>
   );
 }
