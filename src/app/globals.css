@@ -1,26 +1,260 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
+@custom-variant dark (&:is(.dark *));
+
+/* Relay design tokens — netral (zinc) + satu aksen biru. Warna lain hanya untuk status. */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --radius: 0.75rem;
+  --background: oklch(0.985 0 0);
+  --foreground: oklch(0.21 0.006 285.885);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.21 0.006 285.885);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.21 0.006 285.885);
+  --primary: oklch(0.546 0.245 262.881);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.967 0.001 286.375);
+  --secondary-foreground: oklch(0.21 0.006 285.885);
+  --muted: oklch(0.967 0.001 286.375);
+  --muted-foreground: oklch(0.552 0.016 285.938);
+  --accent: oklch(0.967 0.001 286.375);
+  --accent-foreground: oklch(0.21 0.006 285.885);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.92 0.004 286.32);
+  --input: oklch(0.92 0.004 286.32);
+  --ring: oklch(0.546 0.245 262.881);
+
+  /* Motion — kurva & durasi tunggal untuk seluruh app (ref: Emil Kowalski, Vercel guidelines) */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --dur-fast: 150ms;
+  --dur-base: 220ms;
+
+  /* Elevasi: border tipis + 2 lapis bayangan (ambient + direct) */
+  --shadow-card: 0 1px 2px rgb(16 24 40 / 0.04), 0 1px 1px rgb(16 24 40 / 0.02);
+  --shadow-pop: 0 12px 32px -8px rgb(16 24 40 / 0.16), 0 2px 6px rgb(16 24 40 / 0.06);
+  --offset-shadow: rgb(16 24 40 / 0.09);
+}
+
+.dark {
+  --background: oklch(0.141 0.005 285.823);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.21 0.006 285.885);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.21 0.006 285.885);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.623 0.214 259.815);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.274 0.006 286.033);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.274 0.006 286.033);
+  --muted-foreground: oklch(0.705 0.015 286.067);
+  --accent: oklch(0.274 0.006 286.033);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.623 0.214 259.815);
+  --shadow-card: 0 1px 0 rgb(255 255 255 / 0.03) inset;
+  --shadow-pop: 0 16px 40px -8px rgb(0 0 0 / 0.6), 0 2px 8px rgb(0 0 0 / 0.4);
+  --offset-shadow: rgb(255 255 255 / 0.06);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    overscroll-behavior-y: none;
+  }
+  input,
+  textarea,
+  select {
+    font-size: 16px; /* cegah auto-zoom iOS */
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* ───── Interaksi ───── */
+
+/* Umpan balik tekan: skala kecil, cepat, ease-out */
+@utility press {
+  transition: transform var(--dur-fast) var(--ease-out);
+  touch-action: manipulation;
+  &:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+}
+
+/*
+ * Kartu interaktif ala Upstash console: saat hover/terpilih → border berwarna,
+ * tint gradasi lembut dari atas, dan bayangan offset solid di kanan-bawah.
+ * Warna diatur per kartu lewat --tint (default: primary).
+ */
+@utility card-interactive {
+  --tint: var(--primary);
+  position: relative;
+  border: 1px solid var(--border);
+  background-color: var(--card);
+  box-shadow: var(--shadow-card);
+  transition:
+    border-color var(--dur-base) var(--ease-out),
+    box-shadow var(--dur-base) var(--ease-out),
+    background-color var(--dur-base) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+  -webkit-tap-highlight-color: transparent;
+  @media (hover: hover) {
+    &:hover {
+      border-color: color-mix(in oklab, var(--tint) 45%, var(--border));
+      background-image: linear-gradient(180deg, color-mix(in oklab, var(--tint) 7%, transparent), transparent 75%);
+      box-shadow: 4px 4px 0 0 var(--offset-shadow);
+    }
+  }
+  &:active {
+    transform: scale(0.985);
+  }
+  &[data-selected="true"],
+  &[aria-pressed="true"] {
+    border-color: color-mix(in oklab, var(--tint) 70%, var(--border));
+    background-image: linear-gradient(180deg, color-mix(in oklab, var(--tint) 10%, transparent), color-mix(in oklab, var(--tint) 3%, transparent));
+    box-shadow:
+      0 0 0 1px color-mix(in oklab, var(--tint) 35%, transparent),
+      4px 4px 0 0 var(--offset-shadow);
+  }
+  &:focus-visible {
+    outline: 2px solid color-mix(in oklab, var(--tint) 70%, transparent);
+    outline-offset: 2px;
+  }
+}
+
+/* Chip pilihan: terpilih = tint halus (bukan isi solid yang berat) */
+@utility chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  min-height: 2.25rem;
+  padding-inline: 0.875rem;
+  border-radius: 9999px;
+  border: 1px solid var(--border);
+  background-color: var(--card);
+  color: color-mix(in oklab, var(--foreground) 80%, transparent);
+  font-size: 13.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  touch-action: manipulation;
+  transition:
+    color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+  @media (hover: hover) {
+    &:hover {
+      border-color: color-mix(in oklab, var(--foreground) 22%, var(--border));
+      color: var(--foreground);
+    }
+  }
+  &:active {
+    transform: scale(0.97);
+  }
+  &[aria-pressed="true"],
+  &[data-selected="true"] {
+    color: var(--primary);
+    border-color: color-mix(in oklab, var(--primary) 50%, var(--border));
+    background-color: color-mix(in oklab, var(--primary) 8%, var(--card));
+    box-shadow: 0 0 0 1px color-mix(in oklab, var(--primary) 22%, transparent);
+  }
+  &:focus-visible {
+    outline: 2px solid color-mix(in oklab, var(--primary) 60%, transparent);
+    outline-offset: 2px;
+  }
+}
+
+/* Panah yang muncul halus saat kartu di-hover (pasang di elemen dalam .group) */
+@utility reveal-arrow {
+  opacity: 0;
+  transform: translateX(-4px);
+  transition:
+    opacity var(--dur-base) var(--ease-out),
+    transform var(--dur-base) var(--ease-out);
+  :where(.group):hover &,
+  :where(.group):focus-visible & {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Animasi masuk/keluar overlay (Radix + tw-animate) memakai kurva yang sama */
+[data-slot="dialog-content"],
+[data-slot="dropdown-menu-content"],
+[data-slot="dropdown-menu-sub-content"],
+[data-slot="popover-content"] {
+  --tw-ease: var(--ease-out);
+  animation-timing-function: var(--ease-out);
+}
+[data-slot="dialog-overlay"],
+[data-slot="drawer-overlay"] {
+  backdrop-filter: blur(2px);
+}
+
+@keyframes toast-countdown {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

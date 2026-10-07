@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
+<rect width="800" height="600" fill="#e0e7ff"/>
+<g opacity="0.35" stroke="#6366f1" stroke-width="3" fill="none">
+<path d="M0 420 C 160 360, 300 470, 460 400 S 700 330, 800 380"/>
+<path d="M0 470 C 180 410, 320 520, 480 450 S 720 380, 800 430"/>
+<circle cx="610" cy="170" r="70"/><rect x="120" y="120" width="230" height="150" rx="18"/>
+</g>
+<rect x="40" y="500" width="300" height="60" rx="14" fill="#ffffff" opacity="0.9"/>
+<text x="60" y="538" font-family="Helvetica, Arial, sans-serif" font-size="26" font-weight="600" fill="#6366f1">Konektor ONT</text>
+<text x="760" y="560" text-anchor="end" font-family="Helvetica, Arial, sans-serif" font-size="18" fill="#6366f1" opacity="0.7">Foto dummy · Relay</text>
+</svg>

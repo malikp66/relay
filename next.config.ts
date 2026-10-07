@@ -1,7 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  serverExternalPackages: ["@electric-sql/pglite"],
+  experimental: {
+    authInterrupts: true,
+    serverActions: { bodySizeLimit: "8mb" },
+  },
 };
 
 export default nextConfig;
