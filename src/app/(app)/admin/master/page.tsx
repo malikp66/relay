@@ -1,3 +1,4 @@
+import { requireUser } from "@/server/auth";
 import { masterData } from "@/server/queries";
 import { productIconLabel } from "@/lib/product-icons";
 import { MasterCrud } from "@/components/relay/master-crud";
@@ -6,6 +7,7 @@ import { humanizeHours } from "@/lib/format";
 export const metadata = { title: "Referensi" };
 
 export default async function MasterPage() {
+  await requireUser(["admin"]);
   const md = await masterData();
   return (
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">

@@ -5,7 +5,7 @@
  * + kartu penjelasan. Mulai otomatis sekali per user per versi; bisa diputar ulang via useTour().start().
  */
 import { usePathname, useRouter } from "next/navigation";
-import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import type { Role } from "@/db/schema";
@@ -31,7 +31,30 @@ function availableSteps(steps: TourStep[]) {
   return steps.filter((st) => !st.target || findTarget(st.target));
 }
 
-export function TourProvider({ userId, role, children }: { userId: string; role: Role; children: ReactNode }) {
+/*
+ * Identitas user untuk tur dikirim terpisah lewat <TourIdentity> (dirender di dalam Suspense di layout),
+ * supaya layout tidak perlu menunggu data login sebelum menampilkan halaman → navigasi langsung merespons.
+ */
+type Identity = { userId: string; role: Role } | null;
+let identity: Identity = null;
+const identitySubs = new Set<() => void>();
+const subscribeIdentity = (cb: () => void) => {
+  identitySubs.add(cb);
+  return () => identitySubs.delete(cb);
+};
+export function TourIdentity({ userId, role }: { userId: string; role: Role }) {
+  useEffect(() => {
+    if (identity?.userId === userId && identity.role === role) return;
+    identity = { userId, role };
+    identitySubs.forEach((cb) => cb());
+  }, [userId, role]);
+  return null;
+}
+
+export function TourProvider({ children }: { children: ReactNode }) {
+  const id = useSyncExternalStore(subscribeIdentity, () => identity, () => null);
+  const userId = id?.userId ?? "";
+  const role = id?.role;
   const [tour, setTour] = useState<{ steps: TourStep[]; index: number; welcome: boolean; path: string } | null>(null);
   const path = usePathname();
   const router = useRouter();
@@ -51,6 +74,7 @@ export function TourProvider({ userId, role, children }: { userId: string; role:
 
   /** Tur perkenalan per role (di Beranda). */
   const start = useCallback(() => {
+    if (!role) return;
     if (path !== "/dashboard") router.push("/dashboard");
     setTimeout(() => setTour({ steps: availableSteps(TOURS[role]), index: 0, welcome: true, path: "/dashboard" }), path === "/dashboard" ? 0 : 600);
   }, [path, router, role]);
@@ -64,7 +88,7 @@ export function TourProvider({ userId, role, children }: { userId: string; role:
 
   // auto-start tur perkenalan sekali di beranda
   useEffect(() => {
-    if (path !== "/dashboard" || tourDone(userId)) return;
+    if (!role || !userId || path !== "/dashboard" || tourDone(userId)) return;
     const t = setTimeout(() => setTour((cur) => cur ?? { steps: availableSteps(TOURS[role]), index: 0, welcome: true, path: "/dashboard" }), 700);
     return () => clearTimeout(t);
   }, [path, userId, role]);

@@ -1,3 +1,4 @@
+import { requireUser } from "@/server/auth";
 import { asc } from "drizzle-orm";
 import { getDb, schema as s } from "@/db";
 import { OrgTree } from "./org-tree";
@@ -5,6 +6,7 @@ import { OrgTree } from "./org-tree";
 export const metadata = { title: "Crew & org" };
 
 export default async function GroupsPage() {
+  await requireUser(["admin"]);
   const db = await getDb();
   const [groups, members, users, scopes, categories] = await Promise.all([
     db.select().from(s.groups).orderBy(asc(s.groups.name)),

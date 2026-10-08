@@ -1,9 +1,11 @@
+import { requireUser } from "@/server/auth";
 import { masterData } from "@/server/queries";
 import { MasterCrud } from "@/components/relay/master-crud";
 
 export const metadata = { title: "Lokasi & pelanggan" };
 
 export default async function LocationsPage() {
+  await requireUser(["admin"]);
   const md = await masterData();
   const custName = (id: unknown) => md.customers.find((c) => c.id === id)?.name;
   return (

@@ -1,3 +1,4 @@
+import { requireUser } from "@/server/auth";
 import Link from "next/link";
 import { and, count, desc, eq, ilike, type SQL } from "drizzle-orm";
 import { ChevronRight, FileText, Gauge, History, ListChecks, MapPin, Network, Package, Tags, UserRound, Users, Contact, type LucideIcon } from "lucide-react";
@@ -47,6 +48,7 @@ const PAGE = 50;
 const ymd = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(d);
 
 export default async function AuditPage({ searchParams }: PageProps<"/admin/audit">) {
+  await requireUser(["admin"]);
   const sp = await searchParams;
   const str = (k: string) => (typeof sp[k] === "string" ? (sp[k] as string) : null);
   const f = { entity: str("entity"), action: str("action"), actor: str("actor"), q: str("q") };

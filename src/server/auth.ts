@@ -57,17 +57,17 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   const token = jar.get(COOKIE)?.value;
   if (!token) return null;
   const db = await getDb();
-  const [row] = await db
-    .select({ user: s.users })
+  // Satu query: sesi + user + keanggotaan crew (dipanggil di setiap halaman, jadi hemat putaran ke DB)
+  const rows = await db
+    .select({ user: s.users, groupId: s.groupMembers.groupId, memberRole: s.groupMembers.memberRole, groupName: s.groups.name })
     .from(s.sessions)
     .innerJoin(s.users, eq(s.users.id, s.sessions.userId))
+    .leftJoin(s.groupMembers, eq(s.groupMembers.userId, s.users.id))
+    .leftJoin(s.groups, eq(s.groups.id, s.groupMembers.groupId))
     .where(and(eq(s.sessions.id, hashToken(token)), gt(s.sessions.expiresAt, new Date()), eq(s.users.isActive, true)));
+  const row = rows[0];
   if (!row) return null;
-  const memberships = await db
-    .select({ groupId: s.groupMembers.groupId, memberRole: s.groupMembers.memberRole, name: s.groups.name })
-    .from(s.groupMembers)
-    .innerJoin(s.groups, eq(s.groups.id, s.groupMembers.groupId))
-    .where(eq(s.groupMembers.userId, row.user.id));
+  const memberships = rows.filter((r) => r.groupId).map((r) => ({ groupId: r.groupId!, memberRole: r.memberRole!, name: r.groupName! }));
   return {
     id: row.user.id,
     name: row.user.name,

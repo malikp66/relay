@@ -35,7 +35,7 @@ async function initPostgres(url: string): Promise<DB> {
   const { migrate } = await import("drizzle-orm/node-postgres/migrator");
   const pool = new Pool({
     ...pgConnection(url),
-    max: Number(process.env.PG_POOL_MAX ?? 3),
+    max: Number(process.env.PG_POOL_MAX ?? 6), // cukup untuk query paralel satu halaman (lewat Neon pooler)
     idleTimeoutMillis: 10_000,
   });
   const db = drizzle(pool, { schema });

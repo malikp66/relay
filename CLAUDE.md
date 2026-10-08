@@ -47,6 +47,11 @@ Rencana & tasklist: `../RENCANA_PENGERJAAN_RELAY.md`. Papan kerja: `../SPRINT_BO
 - Sumber: `public/relay-icon.svg` (PNG 500×500 di dalam SVG, yang ditampilkan area 272×265). Turunan PNG: `public/brand/relay-icon.png` (logo UI via `BrandMark`), `src/app/icon.png` (favicon), `src/app/apple-icon.png` (penuh, tanpa sudut transparan), `public/pwa-icon/{96,192,512,512-maskable,96-badge}.png`. Warna latar ikon `#1555F3` (`BRAND_BLUE`).
 - Ganti logo → buat ulang semua turunan dengan `sharp` (maskable: R di area aman 80%; badge: siluet putih), lalu naikkan `VERSION` di `public/sw.js` agar cache ikon lama di HP terganti.
 
+## Kecepatan (penting untuk production)
+- Server Vercel harus satu region dengan Neon (Singapura): `vercel.json` → `"regions": ["sin1"]`. Beda benua = ±230 ms per query.
+- Hindari query berurutan yang saling lepas: pakai `Promise.all` (contoh `getTaskDetail`). `getCurrentUser` cukup 1 query.
+- `(app)/layout.tsx` tidak boleh `await` data login di badannya; bagian yang butuh user dibungkus `<Suspense>` agar `loading.tsx` tampil seketika. Pemeriksaan akses ada di tiap page (`requireUser`), termasuk halaman admin (`requireUser(["admin"])`), bukan di layout.
+
 ## Jebakan dev
 - Service worker PWA hanya didaftarkan di production. Bila pernah menjalankan build production di origin yang sama (mis. localhost:3000), SW lama bisa menyajikan CSS/JS basi di dev — `PwaRegister` otomatis melepasnya di dev, tapi sekali-sekalinya mungkin perlu hard refresh.
 - Hindari class arbitrary yang rumit (gradien + `#hex` + `%` di dalam `bg-[...]`); pindahkan ke `@utility` di `globals.css`.

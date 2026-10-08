@@ -156,56 +156,54 @@ export async function getTaskDetail(user: CurrentUser, id: string) {
     .where(eq(s.tasks.id, id));
   if (!t) return null;
 
-  const assignees = await db
-    .select({ id: s.users.id, name: s.users.name, phone: s.users.phone })
-    .from(s.taskAssignees)
-    .innerJoin(s.users, eq(s.users.id, s.taskAssignees.userId))
-    .where(eq(s.taskAssignees.taskId, id));
-  if (!canViewTask(user, t.task, assignees.map((a) => a.id))) return "forbidden" as const;
-
+  // Semua query lanjutan saling lepas → jalankan bersamaan (1 putaran ke DB, bukan 8 berurutan).
+  // Data baru dikembalikan setelah cek izin di bawah.
   const completer = alias(s.users, "completer");
-  const items = await db
-    .select({ item: s.checklistItems, response: s.checklistResponses, completedByName: completer.name })
-    .from(s.checklistItems)
-    .leftJoin(s.checklistResponses, eq(s.checklistResponses.itemId, s.checklistItems.id))
-    .leftJoin(completer, eq(completer.id, s.checklistResponses.completedBy))
-    .where(eq(s.checklistItems.taskId, id))
-    .orderBy(asc(s.checklistItems.sort));
-
   const editor = alias(s.users, "editor");
-  const [report] = await db
-    .select({ report: s.reports, editorName: editor.name })
-    .from(s.reports)
-    .leftJoin(editor, eq(editor.id, s.reports.lastEditedBy))
-    .where(eq(s.reports.taskId, id));
-  const [template] = await db.select().from(s.reportTemplates).where(eq(s.reportTemplates.categoryId, t.category.id)).limit(1);
-
-  const reviews = await db
-    .select({ review: s.reviews, reviewerName: s.users.name })
-    .from(s.reviews)
-    .innerJoin(s.users, eq(s.users.id, s.reviews.reviewerId))
-    .where(eq(s.reviews.taskId, id))
-    .orderBy(asc(s.reviews.passNo));
-
-  const events = await db
-    .select({ event: s.taskEvents, actorName: s.users.name })
-    .from(s.taskEvents)
-    .leftJoin(s.users, eq(s.users.id, s.taskEvents.actorId))
-    .where(eq(s.taskEvents.taskId, id))
-    .orderBy(desc(s.taskEvents.createdAt));
-
-  const attendance = await db
-    .select({ a: s.attendances, userName: s.users.name })
-    .from(s.attendances)
-    .innerJoin(s.users, eq(s.users.id, s.attendances.userId))
-    .where(eq(s.attendances.taskId, id))
-    .orderBy(asc(s.attendances.checkInAt));
-
-  const [myOpen] = await db
-    .select({ id: s.attendances.id, taskId: s.attendances.taskId, code: s.tasks.code })
-    .from(s.attendances)
-    .innerJoin(s.tasks, eq(s.tasks.id, s.attendances.taskId))
-    .where(and(eq(s.attendances.userId, user.id), isNull(s.attendances.checkOutAt)));
+  const [assignees, items, [report], [template], reviews, events, attendance, [myOpen]] = await Promise.all([
+    db
+      .select({ id: s.users.id, name: s.users.name, phone: s.users.phone })
+      .from(s.taskAssignees)
+      .innerJoin(s.users, eq(s.users.id, s.taskAssignees.userId))
+      .where(eq(s.taskAssignees.taskId, id)),
+    db
+      .select({ item: s.checklistItems, response: s.checklistResponses, completedByName: completer.name })
+      .from(s.checklistItems)
+      .leftJoin(s.checklistResponses, eq(s.checklistResponses.itemId, s.checklistItems.id))
+      .leftJoin(completer, eq(completer.id, s.checklistResponses.completedBy))
+      .where(eq(s.checklistItems.taskId, id))
+      .orderBy(asc(s.checklistItems.sort)),
+    db
+      .select({ report: s.reports, editorName: editor.name })
+      .from(s.reports)
+      .leftJoin(editor, eq(editor.id, s.reports.lastEditedBy))
+      .where(eq(s.reports.taskId, id)),
+    db.select().from(s.reportTemplates).where(eq(s.reportTemplates.categoryId, t.category.id)).limit(1),
+    db
+      .select({ review: s.reviews, reviewerName: s.users.name })
+      .from(s.reviews)
+      .innerJoin(s.users, eq(s.users.id, s.reviews.reviewerId))
+      .where(eq(s.reviews.taskId, id))
+      .orderBy(asc(s.reviews.passNo)),
+    db
+      .select({ event: s.taskEvents, actorName: s.users.name })
+      .from(s.taskEvents)
+      .leftJoin(s.users, eq(s.users.id, s.taskEvents.actorId))
+      .where(eq(s.taskEvents.taskId, id))
+      .orderBy(desc(s.taskEvents.createdAt)),
+    db
+      .select({ a: s.attendances, userName: s.users.name })
+      .from(s.attendances)
+      .innerJoin(s.users, eq(s.users.id, s.attendances.userId))
+      .where(eq(s.attendances.taskId, id))
+      .orderBy(asc(s.attendances.checkInAt)),
+    db
+      .select({ id: s.attendances.id, taskId: s.attendances.taskId, code: s.tasks.code })
+      .from(s.attendances)
+      .innerJoin(s.tasks, eq(s.tasks.id, s.attendances.taskId))
+      .where(and(eq(s.attendances.userId, user.id), isNull(s.attendances.checkOutAt))),
+  ]);
+  if (!canViewTask(user, t.task, assignees.map((a) => a.id))) return "forbidden" as const;
 
   return {
     ...t,

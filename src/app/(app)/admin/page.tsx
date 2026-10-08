@@ -1,3 +1,4 @@
+import { requireUser } from "@/server/auth";
 import { sql } from "drizzle-orm";
 import { Building2, ClipboardList, Database, MapPin, ScrollText, Users } from "lucide-react";
 import { getDb, schema as s } from "@/db";
@@ -10,6 +11,7 @@ function Count({ n }: { n: number }) {
 }
 
 export default async function AdminHome() {
+  await requireUser(["admin"]);
   const db = await getDb();
   const count = async (t: typeof s.users | typeof s.groups | typeof s.sites | typeof s.customers | typeof s.tasks | typeof s.checklistTemplates) =>
     (await db.select({ n: sql<number>`count(*)::int` }).from(t))[0].n;

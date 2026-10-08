@@ -1,3 +1,4 @@
+import { requireUser } from "@/server/auth";
 import { asc } from "drizzle-orm";
 import { getDb, schema as s } from "@/db";
 import { UsersView } from "./users-view";
@@ -5,6 +6,7 @@ import { UsersView } from "./users-view";
 export const metadata = { title: "User" };
 
 export default async function UsersPage() {
+  await requireUser(["admin"]);
   const db = await getDb();
   const [users, members, groups] = await Promise.all([
     db.select().from(s.users).orderBy(asc(s.users.role), asc(s.users.name)),

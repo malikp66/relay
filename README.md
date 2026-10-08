@@ -21,8 +21,9 @@ Vercel (serverless) **tidak punya disk persisten**, jadi database lokal PGlite t
 
 1. Buat database Postgres — paling mudah: Vercel → project → **Storage → Neon (Postgres)** → Connect. Ini otomatis menambah env `DATABASE_URL`.
    (Atau buat sendiri di neon.tech lalu isi `DATABASE_URL` di Settings → Environment Variables.)
-2. Redeploy. Saat request pertama, aplikasi otomatis menjalankan migrasi & mengisi data demo (dikunci agar tidak dobel).
-3. Cek: buka `/api/health` → harus `{"ok":true,"db":"postgres"}`.
+2. Pastikan region server = region database. Repo ini sudah berisi `vercel.json` dengan `"regions": ["sin1"]` (Singapura, sama dengan Neon `ap-southeast-1`). Kalau database kamu di region lain, sesuaikan; beda benua membuat tiap pindah halaman lambat.
+3. Redeploy. Saat request pertama, aplikasi otomatis menjalankan migrasi & mengisi data demo (dikunci agar tidak dobel).
+4. Cek: buka `/api/health` → harus `{"ok":true,"db":"postgres"}`.
 
 Env opsional: `DEMO_MODE=false` (matikan login cepat demo), `PG_POOL_MAX` (default 3).
 
