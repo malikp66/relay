@@ -1,33 +1,97 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { deleteMasterAction, saveMasterAction } from "@/app/actions/admin";
 import { BottomSheet } from "./bottom-sheet";
+import { SearchInput } from "./search-input";
+import { cn } from "@/lib/utils";
+import { PRODUCT_ICONS, ProductIcon } from "@/lib/product-icons";
 import { IconButton } from "./icon-button";
 import { notify, useAlert } from "./alert";
+import { Field, SelectBox, TextArea, TextInput } from "./form";
+import { DurationField } from "./duration-field";
+import { LocationPicker } from "./location-picker";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
+import { check, masterSchemas, type FieldErrors, type MasterKind } from "@/lib/validation";
 
-type Kind = "categories" | "products" | "priorities" | "customers" | "sites";
-type FieldDef = { key: string; label: string; type?: "text" | "number" | "textarea" | "checkbox" | "select"; options?: { id: string; name: string }[]; placeholder?: string; half?: boolean };
-type Row = Record<string, unknown> & { id: string; _primary: string; _secondary?: string };
+type FieldDef = {
+  key: string;
+  label: string;
+  type?: "text" | "number" | "textarea" | "checkbox" | "select" | "icon" | "duration" | "location";
+  options?: { id: string; name: string }[];
+  placeholder?: string;
+  hint?: string;
+  suffix?: string;
+  optional?: boolean;
+  /** label pilihan kosong untuk select (mis. "Tanpa pelanggan") */
+  emptyLabel?: string;
+  defaultValue?: unknown;
+  half?: boolean;
+  inputMode?: "numeric" | "decimal" | "tel" | "text";
+  /** paksa huruf besar saat diketik (kode) — sama dengan yang disimpan server */
+  upper?: boolean;
+};
+type Row = Record<string, unknown> & { id: string; _primary: string; _secondary?: string; _icon?: string };
 
-/** CRUD generik master data: daftar kartu + form di bottom sheet + konfirmasi hapus. */
-export function MasterCrud({ kind, title, rows, fields, searchable }: { kind: Kind; title: string; rows: Row[]; fields: FieldDef[]; searchable?: boolean }) {
+/** Field "location" mengisi beberapa kolom sekaligus. */
+const EXTRA_KEYS: Partial<Record<NonNullable<FieldDef["type"]>, string[]>> = { location: ["lat", "lng"] };
+const blank = (f: FieldDef) => f.defaultValue ?? (f.type === "checkbox" ? false : f.type === "icon" ? "box" : "");
+
+/** CRUD generik master data: daftar kartu + form di bottom sheet (validasi langsung) + konfirmasi hapus. */
+export function MasterCrud({ kind, title, rows, fields, searchable }: { kind: MasterKind; title: string; rows: Row[]; fields: FieldDef[]; searchable?: boolean }) {
   const { confirm } = useAlert();
   const [editing, setEditing] = useState<Row | "new" | null>(null);
   const [form, setForm] = useState<Record<string, unknown>>({});
+  const [errors, setErrors] = useState<FieldErrors>({});
+  const [attempted, setAttempted] = useState(false);
   const [q, setQ] = useState("");
   const [pending, start] = useTransition();
 
   const open = (r: Row | "new") => {
     setEditing(r);
-    setForm(r === "new" ? Object.fromEntries(fields.map((f) => [f.key, f.type === "checkbox" ? false : ""])) : Object.fromEntries(fields.map((f) => [f.key, r[f.key] ?? (f.type === "checkbox" ? false : "")])));
+    setErrors({});
+    setAttempted(false);
+    const next: Record<string, unknown> = {};
+    for (const f of fields) {
+      if (f.type === "location") for (const k of EXTRA_KEYS.location!) next[k] = r === "new" ? null : (r[k] ?? null);
+      else next[f.key] = r === "new" ? blank(f) : (r[f.key] ?? blank(f));
+    }
+    setForm(next);
   };
+  // setelah percobaan simpan pertama, error diperbarui setiap kali isian berubah
+  const update = (patch: Record<string, unknown>) => {
+    const next = { ...form, ...patch };
+    setForm(next);
+    if (attempted) {
+      const r = check(masterSchemas[kind], next);
+      setErrors(r.ok ? {} : r.errors);
+    }
+  };
+  const errorFor = (f: FieldDef) => (f.type === "location" ? (errors.lat ?? errors.lng) : errors[f.key]);
+
+  function submit() {
+    setAttempted(true);
+    const r = check(masterSchemas[kind], form);
+    if (!r.ok) {
+      setErrors(r.errors);
+      const first = fields.find((f) => errorFor(f) || (f.type === "location" ? r.errors.lat || r.errors.lng : r.errors[f.key]));
+      document.querySelector<HTMLElement>(`[data-field="${first?.key}"] input, [data-field="${first?.key}"] textarea, [data-field="${first?.key}"] button`)?.focus();
+      return;
+    }
+    start(async () => {
+      const res = await saveMasterAction(kind, editing === "new" ? null : (editing as Row).id, form);
+      if (res.ok) {
+        notify.success("Tersimpan");
+        setEditing(null);
+      } else {
+        if (res.fieldErrors) setErrors(res.fieldErrors);
+        notify.error(res.error);
+      }
+    });
+  }
+
   const list = rows.filter((r) => !q || JSON.stringify(r).toLowerCase().includes(q.toLowerCase()));
 
   return (
@@ -42,14 +106,12 @@ export function MasterCrud({ kind, title, rows, fields, searchable }: { kind: Ki
         </Button>
       </div>
       {searchable && (
-        <div className="relative">
-          <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={`Cari ${title.toLowerCase()}…`} className="h-10 rounded-xl pl-10" />
-        </div>
+        <SearchInput value={q} onChange={setQ} placeholder={`Cari ${title.toLowerCase()}`} />
       )}
       <ul className="divide-y overflow-hidden rounded-2xl border bg-card shadow-[var(--shadow-card)]">
         {list.map((r) => (
           <li key={r.id} data-tour="master-row" className="flex items-center gap-1 py-2.5 pl-4 pr-2">
+            {r._icon && <RowIcon id={r._icon} />}
             <div className="min-w-0 flex-1 pr-2">
               <p className="truncate text-[14px] font-medium">{r._primary}</p>
               {r._secondary && <p className="mt-0.5 truncate text-[12.5px] text-muted-foreground">{r._secondary}</p>}
@@ -75,51 +137,109 @@ export function MasterCrud({ kind, title, rows, fields, searchable }: { kind: Ki
 
       <BottomSheet open={!!editing} onOpenChange={(o) => !o && setEditing(null)} title={editing === "new" ? `Tambah ${title.toLowerCase()}` : `Ubah ${title.toLowerCase()}`}>
         <form
-          className="grid grid-cols-2 gap-3 pb-2"
+          noValidate
+          className="grid grid-cols-2 gap-x-3 gap-y-4 pb-2"
           onSubmit={(e) => {
             e.preventDefault();
-            start(async () => {
-              const res = await saveMasterAction(kind, editing === "new" ? null : (editing as Row).id, form);
-              if (res.ok) {
-                notify.success("Tersimpan");
-                setEditing(null);
-              } else notify.error(res.error);
-            });
+            submit();
           }}
         >
-          {fields.map((f) => (
-            <div key={f.key} className={f.half ? "col-span-1 space-y-1.5" : "col-span-2 space-y-1.5"}>
-              {f.type === "checkbox" ? (
-                <label className="flex items-center justify-between rounded-xl border px-3 py-2.5 text-sm">
-                  {f.label}
-                  <Switch checked={!!form[f.key]} onCheckedChange={(c) => setForm((p) => ({ ...p, [f.key]: c }))} />
-                </label>
-              ) : (
-                <>
-                  <Label>{f.label}</Label>
-                  {f.type === "textarea" ? (
-                    <Textarea value={String(form[f.key] ?? "")} onChange={(e) => setForm((p) => ({ ...p, [f.key]: e.target.value }))} className="rounded-xl" rows={2} />
-                  ) : f.type === "select" ? (
-                    <select value={String(form[f.key] ?? "")} onChange={(e) => setForm((p) => ({ ...p, [f.key]: e.target.value }))} className="h-11 w-full rounded-xl border bg-background px-3 text-sm">
-                      <option value="">Tidak ada</option>
-                      {f.options?.map((o) => (
-                        <option key={o.id} value={o.id}>
-                          {o.name}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <Input type={f.type === "number" ? "number" : "text"} step="any" value={String(form[f.key] ?? "")} placeholder={f.placeholder} onChange={(e) => setForm((p) => ({ ...p, [f.key]: e.target.value }))} className="h-11 rounded-xl" />
-                  )}
-                </>
-              )}
-            </div>
-          ))}
-          <Button type="submit" disabled={pending} className="col-span-2 mt-2 h-12 rounded-xl">
-            Simpan
+          {fields.map((f) => {
+            const err = errorFor(f);
+            const val = form[f.key];
+            return (
+              <div key={f.key} data-field={f.key} className={f.half ? "col-span-2 sm:col-span-1" : "col-span-2"}>
+                {f.type === "checkbox" ? (
+                  <label className="flex min-h-11 cursor-pointer items-center justify-between gap-3 rounded-xl border px-3.5 py-2.5 text-[14px]">
+                    <span>
+                      {f.label}
+                      {f.hint && <span className="mt-0.5 block text-[12px] text-muted-foreground">{f.hint}</span>}
+                    </span>
+                    <Switch checked={!!val} onCheckedChange={(c) => update({ [f.key]: c })} />
+                  </label>
+                ) : (
+                  <Field label={f.label} error={err} hint={f.hint} optional={f.optional}>
+                    {(id, describedBy) =>
+                      f.type === "textarea" ? (
+                        <TextArea id={id} aria-describedby={describedBy} invalid={!!err} value={String(val ?? "")} placeholder={f.placeholder} onChange={(e) => update({ [f.key]: e.target.value })} />
+                      ) : f.type === "icon" ? (
+                        <IconPicker value={String(val ?? "box")} onChange={(v) => update({ [f.key]: v })} />
+                      ) : f.type === "select" ? (
+                        <SelectBox id={id} describedBy={describedBy} invalid={!!err} value={String(val ?? "")} onChange={(v) => update({ [f.key]: v })} options={f.options ?? []} emptyLabel={f.emptyLabel} placeholder={f.placeholder} />
+                      ) : f.type === "duration" ? (
+                        <DurationField id={id} describedBy={describedBy} invalid={!!err} value={val as number} onChange={(h) => update({ [f.key]: h })} />
+                      ) : f.type === "location" ? (
+                        <LocationPicker
+                          lat={typeof form.lat === "number" ? form.lat : form.lat ? Number(form.lat) : null}
+                          lng={typeof form.lng === "number" ? form.lng : form.lng ? Number(form.lng) : null}
+                          radius={Number(form.radiusM) || 0}
+                          address={String(form.address ?? "")}
+                          invalid={!!err}
+                          onChange={(p) => update(p)}
+                        />
+                      ) : (
+                        <TextInput
+                          id={id}
+                          aria-describedby={describedBy}
+                          invalid={!!err}
+                          inputMode={f.inputMode ?? (f.type === "number" ? "numeric" : undefined)}
+                          suffix={f.suffix}
+                          value={String(val ?? "")}
+                          placeholder={f.placeholder}
+                          onChange={(e) => update({ [f.key]: f.upper ? e.target.value.toUpperCase() : e.target.value })}
+                          autoCapitalize={f.upper ? "characters" : undefined}
+                        />
+                      )
+                    }
+                  </Field>
+                )}
+              </div>
+            );
+          })}
+          {attempted && fields.some((f) => errorFor(f)) && (
+            <p role="alert" className="col-span-2 rounded-xl bg-red-500/[0.07] px-3.5 py-2.5 text-[12.5px] font-medium text-red-700 dark:text-red-300">
+              {fields.filter((f) => errorFor(f)).length} isian perlu diperbaiki sebelum disimpan.
+            </p>
+          )}
+          <Button type="submit" disabled={pending} className="col-span-2 mt-1 h-12 rounded-xl">
+            {pending ? "Menyimpan…" : "Simpan"}
           </Button>
         </form>
       </BottomSheet>
     </section>
+  );
+}
+
+function RowIcon({ id }: { id: string }) {
+  return (
+    <span className="mr-2 flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-foreground/[0.05] text-muted-foreground">
+      <ProductIcon id={id} className="size-[18px]" />
+    </span>
+  );
+}
+
+/** Pilih ikon dari daftar tetap (lib/product-icons.ts): grid tombol, label di bawah ikon. */
+function IconPicker({ value, onChange }: { value: string; onChange: (id: string) => void }) {
+  return (
+    <div role="radiogroup" aria-label="Ikon" className="grid grid-cols-4 gap-1.5 sm:grid-cols-6">
+      {PRODUCT_ICONS.map((i) => {
+        const on = value === i.id;
+        return (
+          <button
+            key={i.id}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            data-selected={on}
+            title={i.label}
+            onClick={() => onChange(i.id)}
+            className="card-interactive flex h-[68px] flex-col items-center justify-center gap-1.5 rounded-xl px-1 text-center"
+          >
+            <i.icon className={cn("size-5", on ? "text-primary" : "text-muted-foreground")} />
+            <span className="line-clamp-1 text-[10.5px] leading-tight text-muted-foreground">{i.label}</span>
+          </button>
+        );
+      })}
+    </div>
   );
 }

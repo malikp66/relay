@@ -213,7 +213,8 @@ export async function getTaskDetail(user: CurrentUser, id: string) {
     items: items.map((r) => ({ ...r.item, response: r.response, completedByName: r.completedByName })),
     report: report?.report ?? null,
     reportEditorName: report?.editorName ?? null,
-    template,
+    // field laporan = salinan versi saat laporan dibuat (bila ada), selain itu template terbaru
+    template: template ? { ...template, fields: report?.report.templateFields ?? template.fields, version: report?.report.templateVersion ?? template.version } : template,
     reviews,
     events,
     attendance,
@@ -352,13 +353,13 @@ export async function technicians(groupIds?: string[]) {
 export async function checklistTemplatesWithItems() {
   const db = await getDb();
   const tpls = await db
-    .select({ tpl: s.checklistTemplates, categoryName: s.categories.name, categoryCode: s.categories.code, productName: s.products.name })
+    .select({ tpl: s.checklistTemplates, categoryName: s.categories.name, categoryCode: s.categories.code, productName: s.products.name, productIcon: s.products.icon })
     .from(s.checklistTemplates)
     .innerJoin(s.categories, eq(s.categories.id, s.checklistTemplates.categoryId))
     .innerJoin(s.products, eq(s.products.id, s.checklistTemplates.productId))
     .orderBy(asc(s.categories.code), asc(s.products.name));
   const items = await db.select().from(s.checklistTemplateItems).orderBy(asc(s.checklistTemplateItems.sort));
-  return tpls.map((t) => ({ ...t.tpl, categoryName: t.categoryName, categoryCode: t.categoryCode, productName: t.productName, items: items.filter((i) => i.templateId === t.tpl.id) }));
+  return tpls.map((t) => ({ ...t.tpl, categoryName: t.categoryName, categoryCode: t.categoryCode, productName: t.productName, productIcon: t.productIcon, items: items.filter((i) => i.templateId === t.tpl.id) }));
 }
 
 /* ───────────── Schedule ───────────── */
@@ -373,6 +374,7 @@ export async function scheduledTasks(user: CurrentUser, from: Date, to: Date) {
       status: s.tasks.status,
       scheduledFor: s.tasks.scheduledFor,
       categoryCode: s.categories.code,
+      productId: s.tasks.productId,
       productName: s.products.name,
       priorityLevel: s.priorities.level,
       priorityName: s.priorities.name,

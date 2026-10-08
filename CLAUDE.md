@@ -40,7 +40,12 @@ Rencana & tasklist: `../RENCANA_PENGERJAAN_RELAY.md`. Papan kerja: `../SPRINT_BO
 ## Data
 - `DATABASE_URL` diisi → Postgres (node-postgres, mis. Neon) — wajib di Vercel. Kosong → PGlite di `.data/pglite` (lokal). Migrasi + seed otomatis saat start, dikunci `pg_advisory_lock`. Ubah schema → `npx drizzle-kit generate` (migrasi baru diterapkan otomatis).
 - Foto bukti disimpan di tabel `files` (bytea), bukan disk. `/api/health` untuk cek koneksi DB.
+- Template laporan berversi (`report_templates.version`). Laporan menyimpan salinan field saat dibuat (`reports.template_fields` + `template_version`) — selalu baca field laporan dari salinan itu (lihat `queries.ts` & `missingReportFields`), bukan template terbaru. Editor: `templates/report-editor.tsx` → `saveReportTemplateAction` (admin, simpan sekaligus, cek versi).
 - Seed dummy: `src/db/seed.ts` (tanggal relatif terhadap waktu seed). Password akun demo `relay123`.
+
+## Logo & ikon
+- Sumber: `public/relay-icon.svg` (PNG 500×500 di dalam SVG, yang ditampilkan area 272×265). Turunan PNG: `public/brand/relay-icon.png` (logo UI via `BrandMark`), `src/app/icon.png` (favicon), `src/app/apple-icon.png` (penuh, tanpa sudut transparan), `public/pwa-icon/{96,192,512,512-maskable,96-badge}.png`. Warna latar ikon `#1555F3` (`BRAND_BLUE`).
+- Ganti logo → buat ulang semua turunan dengan `sharp` (maskable: R di area aman 80%; badge: siluet putih), lalu naikkan `VERSION` di `public/sw.js` agar cache ikon lama di HP terganti.
 
 ## Jebakan dev
 - Service worker PWA hanya didaftarkan di production. Bila pernah menjalankan build production di origin yang sama (mis. localhost:3000), SW lama bisa menyajikan CSS/JS basi di dev — `PwaRegister` otomatis melepasnya di dev, tapi sekali-sekalinya mungkin perlu hard refresh.

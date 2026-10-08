@@ -123,6 +123,8 @@ export const products = pgTable("products", {
   id: id(),
   name: text("name").notNull(),
   code: text("code").notNull().unique(),
+  /** id dari PRODUCT_ICONS (lib/product-icons.ts) */
+  icon: text("icon"),
   createdAt: createdAt(),
 });
 
@@ -190,7 +192,11 @@ export const reportTemplates = pgTable("report_templates", {
     .references(() => categories.id),
   name: text("name").notNull(),
   fields: jsonb("fields").$type<ReportField[]>().notNull(),
+  /** naik setiap kali field diubah; laporan menyimpan salinan field + versi saat dibuat */
+  version: integer("version").notNull().default(1),
+  updatedBy: text("updated_by").references(() => users.id),
   createdAt: createdAt(),
+  updatedAt: updatedAt(),
 });
 
 /* ───────────── Task ───────────── */
@@ -293,6 +299,9 @@ export const reports = pgTable("reports", {
     .unique()
     .references(() => tasks.id, { onDelete: "cascade" }),
   templateId: text("template_id").references(() => reportTemplates.id),
+  /** salinan field template saat laporan dibuat (Job Done) — perubahan template tidak memengaruhi laporan berjalan */
+  templateFields: jsonb("template_fields").$type<ReportField[]>(),
+  templateVersion: integer("template_version"),
   fields: jsonb("fields").$type<Record<string, string | number | boolean | null>>().notNull().default({}),
   findings: text("findings"),
   submittedBy: text("submitted_by").references(() => users.id),

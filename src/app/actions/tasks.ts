@@ -9,7 +9,7 @@ import { canManageTask, isAssignee } from "@/server/policy";
 import { notifyTask } from "@/server/notifications";
 import { CHECKLIST_EDITABLE, REPORT_EDITABLE, WorkflowError, loadTaskForAction, transition, type TransitionAction } from "@/server/workflow";
 
-export type Result = { ok: true; id?: string } | { ok: false; error: string };
+export type Result = { ok: true; id?: string } | { ok: false; error: string; fieldErrors?: Record<string, string> };
 
 const fail = (e: unknown): Result => ({ ok: false, error: e instanceof WorkflowError || e instanceof z.ZodError ? (e instanceof z.ZodError ? e.issues[0]?.message ?? "Data tidak valid." : e.message) : "Terjadi kesalahan. Coba lagi." });
 
@@ -230,7 +230,7 @@ export async function saveReportAction(taskId: string, fields: Record<string, st
         .where(eq(s.reports.id, existing.id));
     } else {
       const [tpl] = await db.select().from(s.reportTemplates).where(eq(s.reportTemplates.categoryId, task.categoryId)).limit(1);
-      await db.insert(s.reports).values({ taskId, templateId: tpl?.id, fields, findings, lastEditedBy: user.id });
+      await db.insert(s.reports).values({ taskId, templateId: tpl?.id, templateFields: tpl?.fields, templateVersion: tpl?.version, fields, findings, lastEditedBy: user.id });
     }
     refresh();
     return { ok: true };

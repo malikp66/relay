@@ -2,8 +2,11 @@ import Link from "next/link";
 import type { CSSProperties } from "react";
 import { ChevronLeft, ChevronRight, MapPin, Repeat } from "lucide-react";
 import { requireUser } from "@/server/auth";
-import { maintenancePlans, scheduledTasks } from "@/server/queries";
-import { PageHeader } from "@/components/relay/page";
+import { maintenancePlans, masterData, scheduledTasks, technicians } from "@/server/queries";
+import { Metrics, PageHeader } from "@/components/relay/page";
+import { FilterChips, type FilterDef } from "@/components/relay/filter-chips";
+import { nowMs } from "@/lib/clock";
+import type { TaskStatus } from "@/db/schema";
 import { StatusBadge } from "@/components/relay/badges";
 import { AvatarStack } from "@/components/relay/avatar-stack";
 import { fmtDate, fmtTime } from "@/lib/format";
@@ -32,6 +35,15 @@ const label = (s: string, opts: Intl.DateTimeFormatOptions) => fmtDate(wib(s, "1
 
 const WEEKDAYS = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"];
 
+/** Filter status dikelompokkan menurut pertanyaan supervisor, bukan 9 status mentah. */
+const STATUS_GROUPS: Record<string, { name: string; statuses: TaskStatus[] }> = {
+  todo: { name: "Belum dikerjakan", statuses: ["assigned"] },
+  active: { name: "Sedang berjalan", statuses: ["in_progress", "job_done", "revision"] },
+  review: { name: "Menunggu review", statuses: ["submitted", "under_review"] },
+  done: { name: "Selesai", statuses: ["approved", "finished"] },
+};
+const FILTER_KEYS = ["status", "category", "product", "group", "tech"] as const;
+
 export default async function SchedulePage({ searchParams }: PageProps<"/schedule">) {
   const user = await requireUser();
   const sp = await searchParams;
@@ -52,7 +64,33 @@ export default async function SchedulePage({ searchParams }: PageProps<"/schedul
   const rangeStart = weekStart < gridStart ? weekStart : gridStart;
   const rangeEnd = weekDays[6] > gridEnd ? weekDays[6] : gridEnd;
 
-  const [tasks, plans] = await Promise.all([scheduledTasks(user, wib(rangeStart), wib(rangeEnd, "23:59:59")), maintenancePlans(user)]);
+  const manager = user.role !== "technician";
+  const [allTasks, plans, md, techList] = await Promise.all([
+    scheduledTasks(user, wib(rangeStart), wib(rangeEnd, "23:59:59")),
+    maintenancePlans(user),
+    masterData(),
+    manager ? technicians(user.role === "supervisor" ? user.supervisedGroupIds : undefined) : Promise.resolve([]),
+  ]);
+
+  // Filter dari URL (?status=&category=&product=&group=&tech=): diterapkan ke kalender, agenda, dan metrics
+  const f = Object.fromEntries(FILTER_KEYS.map((k) => [k, typeof sp[k] === "string" ? (sp[k] as string) : null])) as Record<(typeof FILTER_KEYS)[number], string | null>;
+  const tasks = allTasks.filter(
+    (t) =>
+      (!f.status || STATUS_GROUPS[f.status]?.statuses.includes(t.status)) &&
+      (!f.category || t.categoryCode === f.category) &&
+      (!f.product || t.productId === f.product) &&
+      (!f.group || t.groupId === f.group) &&
+      (!f.tech || t.assignees.some((a) => a.id === f.tech)),
+  );
+  const filtered = FILTER_KEYS.some((k) => f[k]);
+  const filters: FilterDef[] = [
+    { key: "status", label: "Status", options: Object.entries(STATUS_GROUPS).map(([id, g]) => ({ id, name: g.name })) },
+    { key: "category", label: "Kategori", options: md.categories.map((c) => ({ id: c.code, name: c.name })) },
+    { key: "product", label: "Produk", options: md.products.map((p) => ({ id: p.id, name: p.name })) },
+    ...(user.role === "admin" ? [{ key: "group", label: "Crew", options: md.groups.filter((g) => g.parentId).map((g) => ({ id: g.id, name: g.name })) }] : []),
+    ...(manager ? [{ key: "tech", label: "Teknisi", options: [...new Map(techList.map((t) => [t.id, { id: t.id, name: t.name }])).values()] }] : []),
+  ];
+
   const byDay = new Map<string, typeof tasks>();
   for (const t of tasks) {
     const k = ymd(new Date(t.scheduledFor!));
@@ -60,12 +98,42 @@ export default async function SchedulePage({ searchParams }: PageProps<"/schedul
   }
   const weekCount = weekDays.reduce((n, d) => n + (byDay.get(d)?.length ?? 0), 0);
 
+  // Ringkasan minggu yang sedang dilihat (sudah mengikuti filter)
+  const weekTasks = weekDays.flatMap((d) => byDay.get(d) ?? []);
+  const inGroup = (g: string) => weekTasks.filter((t) => STATUS_GROUPS[g].statuses.includes(t.status));
+  const todo = inGroup("todo");
+  const late = todo.filter((t) => new Date(t.scheduledFor!).getTime() < nowMs()).length;
+  const doneOrReview = inGroup("review").length + inGroup("done").length;
+  const busiest = weekDays.reduce((best, d) => ((byDay.get(d)?.length ?? 0) > (byDay.get(best)?.length ?? 0) ? d : best), weekDays[0]);
+  const busiestN = byDay.get(busiest)?.length ?? 0;
+
   const prevMonth = new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)) - 2, 1)).toISOString().slice(0, 10);
-  const href = (day: string) => `/schedule?day=${day}`;
+  // tautan tanggal/minggu tetap membawa filter yang aktif
+  const keep = FILTER_KEYS.filter((k) => f[k]).map((k) => `&${k}=${encodeURIComponent(f[k]!)}`).join("");
+  const href = (day: string) => `/schedule?day=${day}${keep}`;
 
   return (
     <div>
       <PageHeader title="Jadwal" subtitle="Maintenance terencana & kunjungan troubleshoot" />
+
+      <div className="mb-6 space-y-3">
+        <div data-tour="sched-filters">
+          <FilterChips filters={filters} />
+        </div>
+        <Metrics
+          data-tour="sched-metrics"
+          items={[
+            {
+              label: filtered ? "Jadwal (terfilter)" : "Jadwal minggu ini",
+              value: weekTasks.length,
+              hint: weekTasks.length ? `Tersibuk ${label(busiest, { weekday: "long" })} (${busiestN})` : "Tidak ada jadwal",
+            },
+            { label: "Belum dikerjakan", value: todo.length, hint: late ? `${late} lewat jam mulai` : todo.length ? "Semua masih sesuai jadwal" : "Tidak ada", tone: late ? "warning" : "default" },
+            { label: "Sedang berjalan", value: inGroup("active").length, hint: "Dikerjakan atau revisi" },
+            { label: "Selesai & review", value: doneOrReview, hint: weekTasks.length ? `${Math.round((doneOrReview / weekTasks.length) * 100)}% dari minggu ini` : "Tidak ada" },
+          ]}
+        />
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-[296px_minmax(0,1fr)] lg:grid-rows-[auto_1fr] lg:items-start lg:gap-x-8 lg:gap-y-6">
         {/* ───── Mini kalender ───── */}
@@ -134,7 +202,10 @@ export default async function SchedulePage({ searchParams }: PageProps<"/schedul
               <h2 className="text-[17px] font-semibold tracking-[-0.01em]">
                 {label(weekStart, { day: "numeric", month: weekStart.slice(5, 7) === weekDays[6].slice(5, 7) ? undefined : "short" })} s.d. {label(weekDays[6], { day: "numeric", month: "short", year: "numeric" })}
               </h2>
-              <p className="text-xs text-muted-foreground">{weekCount ? `${weekCount} jadwal minggu ini` : "Tidak ada jadwal minggu ini"}</p>
+              <p className="text-xs text-muted-foreground">
+                {weekCount ? `${weekCount} jadwal minggu ini` : filtered ? "Tidak ada jadwal yang cocok dengan filter" : "Tidak ada jadwal minggu ini"}
+                {filtered && weekCount ? " (terfilter)" : ""}
+              </p>
             </div>
             <div data-tour="sched-weeknav" className="flex gap-2">
               <NavArrow href={href(addDays(selected, -7))} label="Minggu sebelumnya" dir="left" bordered />

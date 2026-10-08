@@ -2,99 +2,145 @@
 
 import { Reorder, useDragControls } from "motion/react";
 import { useRef, useState, useTransition } from "react";
-import { Camera, Check, Eye, GripVertical, Hash, Image as ImageIcon, Loader2, Plus, Smartphone, Trash2 } from "lucide-react";
+import { CalendarClock, Camera, Check, FileText, GripVertical, Hash, Image as ImageIcon, ListChecks, Loader2, Plus, Smartphone, Trash2, Wrench } from "lucide-react";
 import { BottomSheet } from "@/components/relay/bottom-sheet";
+import { IphoneFrame } from "@/components/relay/iphone-frame";
 import { UnitSelect } from "@/components/relay/unit-select";
 import { notify } from "@/components/relay/notify";
 import { addTemplateItemAction, deleteTemplateItemAction, reorderTemplateItemsAction, updateTemplateItemAction } from "@/app/actions/admin";
 import { SmoothTabs } from "@/components/relay/smooth-tabs";
+import { Segmented } from "@/components/relay/segmented";
+import { Section } from "@/components/relay/page";
 import { IconButton } from "@/components/relay/icon-button";
 import { Switch } from "@/components/ui/switch";
-import type { ReportField } from "@/db/schema";
+import { ReportTemplateEditor, type ReportTpl } from "./report-editor";
+import { ProductIcon } from "@/lib/product-icons";
 import { cn } from "@/lib/utils";
 
 type ItemType = "tick" | "data" | "photo";
 type TplItem = { id: string; label: string; type: ItemType; unit: string | null; required: boolean };
-type Tpl = { id: string; name: string; categoryCode: string; productName: string; items: TplItem[] };
+type Tpl = { id: string; name: string; categoryCode: string; productName: string; productIcon: string | null; items: TplItem[] };
 const TYPE_ICON = { tick: Check, data: Hash, photo: ImageIcon };
 const TYPE_LABEL = { tick: "Centang", data: "Data", photo: "Foto" };
+const ITEM_TYPES = [
+  { id: "tick", label: "Centang", icon: Check },
+  { id: "data", label: "Data", icon: Hash },
+  { id: "photo", label: "Foto", icon: ImageIcon },
+] as const;
 const CATS = [
-  ["TS", "Troubleshoot"],
-  ["MT", "Maintenance"],
+  { code: "TS", label: "Troubleshoot", icon: Wrench },
+  { code: "MT", label: "Maintenance", icon: CalendarClock },
 ] as const;
 
-export function TemplatesView({ templates, reportTemplates }: { templates: Tpl[]; reportTemplates: { id: string; name: string; fields: ReportField[] }[]; canEditReport: boolean }) {
+/** Pilih kategori — segmen dengan ikon (dipakai di tab Checklist & Laporan). */
+function CategorySwitch({ value, onChange, counts }: { value: string; onChange: (c: string) => void; counts?: Record<string, number> }) {
+  return (
+    <div role="tablist" aria-label="Kategori" className="inline-flex rounded-xl bg-foreground/[0.05] p-[3px]">
+      {CATS.map((c) => {
+        const on = value === c.code;
+        return (
+          <button
+            key={c.code}
+            role="tab"
+            type="button"
+            aria-selected={on}
+            onClick={() => onChange(c.code)}
+            className={cn(
+              "flex h-8 items-center gap-1.5 rounded-[9px] px-3 text-[13px] font-medium transition-[background-color,color,box-shadow] duration-150",
+              on ? "bg-background text-foreground shadow-[0_1px_2px_rgb(16_24_40/0.08),0_0_0_0.5px_rgb(16_24_40/0.06)] dark:bg-white/[0.11] dark:shadow-none" : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <c.icon className={cn("size-3.5", on ? "text-primary" : "")} />
+            {c.label}
+            {counts ? <span className={cn("tabular text-[11.5px]", on ? "text-muted-foreground" : "text-muted-foreground/70")}>{counts[c.code] ?? 0}</span> : null}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+export function TemplatesView({ templates, reportTemplates, canEditReport }: { templates: Tpl[]; reportTemplates: ReportTpl[]; canEditReport: boolean }) {
   const [mode, setMode] = useState("checklist");
   const [cat, setCat] = useState("TS");
   const [selected, setSelected] = useState<string>(templates.find((t) => t.categoryCode === "TS")?.id ?? templates[0]?.id ?? "");
   const tpl = templates.find((t) => t.id === selected);
+  const report = reportTemplates.find((r) => r.categoryCode === cat);
+  const catCounts = Object.fromEntries(CATS.map((c) => [c.code, templates.filter((t) => t.categoryCode === c.code).length]));
+  const catLabel = CATS.find((c) => c.code === cat)?.label ?? "";
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-8">
       <div data-tour="tpl-mode">
         <SmoothTabs
           value={mode}
           onChange={setMode}
           items={[
-            { id: "checklist", label: "Checklist" },
-            { id: "report", label: "Laporan" },
+            { id: "checklist", label: "Checklist", icon: ListChecks, badge: templates.length },
+            { id: "report", label: "Laporan", icon: FileText, badge: reportTemplates.length },
           ]}
         />
       </div>
       {mode === "checklist" ? (
         <>
-          <div data-tour="tpl-products" className="space-y-3">
-            <div className="inline-flex rounded-xl bg-foreground/[0.05] p-1">
-              {CATS.map(([c, l]) => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => {
-                    setCat(c);
-                    setSelected(templates.find((t) => t.categoryCode === c)?.id ?? "");
-                  }}
-                  className={cn(
-                    "h-8 rounded-lg px-3.5 text-[13px] font-medium transition-[background-color,color,box-shadow] duration-150",
-                    cat === c ? "bg-background text-foreground shadow-[0_1px_2px_rgb(0_0_0/0.08)] dark:bg-white/10" : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {l}
-                </button>
-              ))}
-            </div>
+          <Section
+            tour="tpl-products"
+            title="Pilih template"
+            description="Satu checklist untuk setiap kombinasi kategori dan produk. Checklist otomatis dipakai saat task baru dibuat."
+          >
+            <CategorySwitch
+              value={cat}
+              counts={catCounts}
+              onChange={(c) => {
+                setCat(c);
+                setSelected(templates.find((t) => t.categoryCode === c)?.id ?? "");
+              }}
+            />
             <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-0.5 [mask-image:linear-gradient(to_right,black_85%,transparent)] [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0 sm:[mask-image:none]">
               {templates
                 .filter((t) => t.categoryCode === cat)
-                .map((t) => (
-                  <button key={t.id} type="button" onClick={() => setSelected(t.id)} aria-pressed={selected === t.id} className="chip h-9 shrink-0 gap-2 pr-2">
-                    {t.productName}
-                    <span className="tabular rounded-md bg-foreground/[0.06] px-1.5 text-[11.5px] font-medium leading-5 text-muted-foreground">{t.items.length}</span>
-                  </button>
-                ))}
+                .map((t) => {
+                  const on = selected === t.id;
+                  return (
+                    <button key={t.id} type="button" onClick={() => setSelected(t.id)} aria-pressed={on} className="chip h-9 shrink-0 gap-1.5 pl-3 pr-1.5">
+                      <ProductIcon id={t.productIcon} className="size-4 opacity-70" />
+                      {t.productName}
+                      <span
+                        className={cn(
+                          "tabular ml-0.5 flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold transition-colors duration-150",
+                          on ? "bg-primary text-primary-foreground" : "bg-foreground/[0.07] text-muted-foreground",
+                        )}
+                      >
+                        {t.items.length}
+                      </span>
+                    </button>
+                  );
+                })}
             </div>
-          </div>
+          </Section>
           {/* remount saat data server berubah → state lokal selalu sinkron setelah revalidate */}
-          {tpl && <TemplateEditor key={`${tpl.id}:${tpl.items.map((i) => `${i.id}${i.label}${i.required ? 1 : 0}`).join("|")}`} tpl={tpl} categoryName={CATS.find(([c]) => c === cat)?.[1] ?? ""} />}
+          {tpl && (
+            <Section title="Isi checklist" description="Perubahan langsung tersimpan dan hanya berlaku untuk task baru. Seret ⠿ untuk mengubah urutan, klik label untuk mengganti teks.">
+              <TemplateEditor key={`${tpl.id}:${tpl.items.map((i) => `${i.id}${i.label}${i.required ? 1 : 0}`).join("|")}`} tpl={tpl} categoryName={catLabel} />
+            </Section>
+          )}
         </>
       ) : (
-        <div className="grid gap-3 md:grid-cols-2">
-          {reportTemplates.map((r) => (
-            <div key={r.id} className="overflow-hidden rounded-2xl border bg-card shadow-[var(--shadow-card)]">
-              <p className="border-b px-4 py-3 text-[14px] font-semibold">{r.name}</p>
-              <ol className="divide-y">
-                {r.fields.map((f, i) => (
-                  <li key={f.key} className="flex items-center gap-3 px-4 py-2.5 text-[13.5px]">
-                    <span className="tabular w-4 text-right text-[12px] text-muted-foreground">{i + 1}</span>
-                    <span className="min-w-0 flex-1 truncate">{f.label}</span>
-                    {f.required && <span className="rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">Wajib</span>}
-                    <span className="rounded-md bg-foreground/[0.05] px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">{f.type}</span>
-                  </li>
-                ))}
-              </ol>
-            </div>
-          ))}
-          <p className="text-[12.5px] text-muted-foreground md:col-span-2">Editor template laporan dijadwalkan setelah go-live (RLY-103). Untuk sekarang, perubahan field laporan dilakukan lewat developer.</p>
-        </div>
+        <>
+          <Section tour="rpt-category" title="Pilih kategori" description="Satu form laporan untuk setiap kategori. Teknisi mengisinya setelah Job Done, lalu supervisor mereview.">
+            <CategorySwitch value={cat} onChange={setCat} />
+          </Section>
+          <Section
+            title="Field laporan"
+            description={canEditReport ? "Ubah field lalu tekan Simpan untuk membuat versi baru. Laporan yang sudah dibuat tetap memakai versi lamanya." : "Daftar field yang diisi teknisi di laporan kategori ini."}
+          >
+            {report ? (
+              <ReportTemplateEditor key={`${report.id}:v${report.version}`} tpl={report} canEdit={canEditReport} />
+            ) : (
+              <p className="rounded-2xl border border-dashed px-6 py-10 text-center text-[13px] text-muted-foreground">Belum ada template laporan untuk kategori {catLabel}.</p>
+            )}
+          </Section>
+        </>
       )}
     </div>
   );
@@ -154,11 +200,11 @@ function TemplateEditor({ tpl, categoryName }: { tpl: Tpl; categoryName: string 
             <Loader2 className="size-3.5 animate-spin" /> <span className="hidden sm:inline">Menyimpan</span>
           </span>
           <BottomSheet
-            title="Pratinjau di HP teknisi"
-            description={`${tpl.productName} · ${categoryName}`}
+            title="Tampilan di HP teknisi"
+            description={`${tpl.productName} · ${categoryName}. Seperti ini yang dilihat teknisi di lokasi.`}
             trigger={
               <button type="button" data-tour="tpl-preview" className="press flex h-8 items-center gap-1.5 rounded-lg border bg-card px-2.5 text-[12.5px] font-medium transition-colors hover:bg-foreground/[0.04] lg:hidden">
-                <Eye className="size-3.5" /> Pratinjau
+                <Smartphone className="size-3.5" /> Lihat di HP
               </button>
             }
           >
@@ -179,7 +225,7 @@ function TemplateEditor({ tpl, categoryName }: { tpl: Tpl; categoryName: string 
         </p>
       )}
 
-      {/* Tambah item — menyatu di kaki kartu */}
+      {/* Tambah item: menyatu di kaki kartu */}
       <form
         data-tour="tpl-add"
         onSubmit={(e) => {
@@ -200,25 +246,7 @@ function TemplateEditor({ tpl, categoryName }: { tpl: Tpl; categoryName: string 
           />
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-2 pl-10">
-          <div className="flex rounded-lg bg-foreground/[0.05] p-0.5">
-            {(["tick", "data", "photo"] as const).map((t) => {
-              const Icon = TYPE_ICON[t];
-              return (
-                <button
-                  key={t}
-                  type="button"
-                  aria-pressed={type === t}
-                  onClick={() => setType(t)}
-                  className={cn(
-                    "flex h-7 items-center gap-1 rounded-md px-2.5 text-[12px] font-medium transition-[color,background-color,box-shadow] duration-150",
-                    type === t ? "bg-background text-foreground shadow-[0_1px_2px_rgb(0_0_0/0.08)] dark:bg-white/10" : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  <Icon className="size-3.5" /> {TYPE_LABEL[t]}
-                </button>
-              );
-            })}
-          </div>
+          <Segmented label="Tipe item" options={ITEM_TYPES} value={type} onChange={setType} />
           {type === "data" && <UnitSelect value={unit} onChange={setUnit} />}
           <button
             type="submit"
@@ -232,17 +260,17 @@ function TemplateEditor({ tpl, categoryName }: { tpl: Tpl; categoryName: string 
       </form>
     </section>
 
-    {/* Pratinjau langsung (desktop) — ikut berubah saat item diseret/diubah */}
+    {/* Tampilan di HP teknisi (desktop): ikut berubah saat item diseret/diubah */}
     <aside data-tour="tpl-preview" className="sticky top-20 hidden lg:block">
-      <p className="mb-2 flex items-center gap-1.5 px-1 text-[12.5px] font-medium text-muted-foreground">
-        <Smartphone className="size-3.5" /> Pratinjau di HP teknisi
+      <p className="mb-3 px-1">
+        <span className="flex items-center gap-1.5 text-[13px] font-medium">
+          <Smartphone className="size-3.5 text-muted-foreground" /> Tampilan di HP teknisi
+        </span>
+        <span className="mt-0.5 block text-[12px] text-muted-foreground">Ikut berubah saat kamu mengedit.</span>
       </p>
-      <div className="rounded-[30px] border bg-zinc-100 p-2 shadow-[var(--shadow-card)] dark:bg-white/[0.04]">
-        <div className="max-h-[560px] overflow-y-auto rounded-[24px] border bg-background p-3 [scrollbar-width:none]">
-          <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-foreground/10" />
-          <ChecklistPreview items={items} compact />
-        </div>
-      </div>
+      <IphoneFrame className="mx-auto max-w-[290px]">
+        <ChecklistPreview items={items} compact />
+      </IphoneFrame>
     </aside>
     </div>
   );
@@ -355,7 +383,7 @@ function Row({
         dragging && "z-10 rounded-xl border-transparent shadow-[var(--shadow-pop)] ring-1 ring-foreground/10",
       )}
     >
-      {/* pegangan seret — juga bisa dengan keyboard (↑/↓) */}
+      {/* pegangan seret: juga bisa dengan keyboard (↑/↓) */}
       <button
         type="button"
         aria-label={`Ubah urutan ${item.label}. Seret, atau tekan panah atas/bawah`}

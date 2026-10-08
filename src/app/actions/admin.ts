@@ -8,11 +8,20 @@ import { getDb, schema as s } from "@/db";
 import { DEMO_PASSWORD, resetDemo } from "@/db/seed";
 import { requireUser } from "@/server/auth";
 import type { Result } from "./tasks";
+import type { ReportField } from "@/db/schema";
+import { ROLE_LABEL } from "@/lib/labels";
+import { UNIQUE_FIELDS, groupSchema, masterSchemas, toFieldErrors, userSchema, type MasterKind } from "@/lib/validation";
 
 const fail = (e: unknown): Result => {
-  if (e instanceof z.ZodError) return { ok: false, error: e.issues[0]?.message ?? "Data tidak valid." };
+  if (e instanceof z.ZodError) {
+    const fieldErrors = toFieldErrors(e);
+    return { ok: false, error: "Periksa lagi isian yang ditandai.", fieldErrors };
+  }
   const msg = e instanceof Error ? e.message : "";
-  if (msg.includes("unique") || msg.includes("duplicate")) return { ok: false, error: "Data dengan kode/username yang sama sudah ada." };
+  const detail = `${msg} ${(e as { cause?: { constraint?: string; message?: string } })?.cause?.constraint ?? ""} ${(e as { constraint?: string })?.constraint ?? ""}`;
+  const unique = Object.entries(UNIQUE_FIELDS).find(([constraint]) => detail.includes(constraint));
+  if (unique) return { ok: false, error: unique[1].message, fieldErrors: { [unique[1].field]: unique[1].message } };
+  if (msg.includes("unique") || msg.includes("duplicate")) return { ok: false, error: "Data dengan kode yang sama sudah ada." };
   if (msg.includes("foreign key")) return { ok: false, error: "Data masih dipakai di tempat lain, tidak bisa dihapus." };
   return { ok: false, error: msg || "Terjadi kesalahan." };
 };
@@ -34,19 +43,6 @@ const done = (): Result => {
 
 /* ───────────── Users ───────────── */
 
-const userSchema = z.object({
-  id: z.string().optional(),
-  name: z.string().trim().min(2, "Nama minimal 2 karakter."),
-  username: z
-    .string()
-    .trim()
-    .toLowerCase()
-    .regex(/^[a-z0-9._]{3,}$/, "Username minimal 3 karakter (huruf kecil, angka, titik)."),
-  role: z.enum(["admin", "supervisor", "technician"]),
-  title: z.string().optional(),
-  phone: z.string().optional(),
-  groupId: z.string().optional(),
-});
 
 export async function saveUserAction(input: z.input<typeof userSchema>): Promise<Result> {
   try {
@@ -66,7 +62,7 @@ export async function saveUserAction(input: z.input<typeof userSchema>): Promise
     if (d.groupId && d.role !== "admin") {
       await db.insert(s.groupMembers).values({ groupId: d.groupId, userId: id, memberRole: d.role === "supervisor" ? "supervisor" : "technician" });
     }
-    await audit(user.id, "user", d.id ? "update" : "create", `${d.id ? "Mengubah" : "Menambah"} user ${d.name} (${d.role})`, id);
+    await audit(user.id, "user", d.id ? "update" : "create", `${d.id ? "Mengubah" : "Menambah"} user ${d.name} (${ROLE_LABEL[d.role]})`, id);
     return done();
   } catch (e) {
     return fail(e);
@@ -104,9 +100,7 @@ export async function resetPasswordAction(id: string): Promise<Result> {
 export async function saveGroupAction(input: { id?: string; name: string; code: string; description?: string; categoryIds: string[] }): Promise<Result> {
   try {
     const { user, db } = await admin();
-    const d = z
-      .object({ id: z.string().optional(), name: z.string().trim().min(2, "Nama group wajib diisi."), code: z.string().trim().toUpperCase().min(2, "Kode wajib diisi."), description: z.string().optional(), categoryIds: z.array(z.string()) })
-      .parse(input);
+    const d = groupSchema.parse(input);
     let id = d.id;
     if (id) await db.update(s.groups).set({ name: d.name, code: d.code, description: d.description || null }).where(eq(s.groups.id, id));
     else {
@@ -139,22 +133,7 @@ export async function moveMemberAction(userId: string, groupId: string): Promise
 
 /* ───────────── Master data ───────────── */
 
-type MasterKind = "categories" | "products" | "priorities" | "customers" | "sites";
-
-const masterSchemas = {
-  categories: z.object({ name: z.string().trim().min(2, "Nama wajib diisi."), code: z.string().trim().toUpperCase().min(2, "Kode wajib diisi."), isScheduled: z.boolean().default(false), description: z.string().optional() }),
-  products: z.object({ name: z.string().trim().min(2, "Nama wajib diisi."), code: z.string().trim().toUpperCase().min(2, "Kode wajib diisi.") }),
-  priorities: z.object({ name: z.string().trim().min(2, "Nama wajib diisi."), level: z.coerce.number().int().min(1).max(9), slaHours: z.coerce.number().int().min(1, "SLA minimal 1 jam.") }),
-  customers: z.object({ name: z.string().trim().min(2, "Nama wajib diisi."), customerNo: z.string().trim().min(3, "No. pelanggan wajib diisi."), phone: z.string().optional(), address: z.string().optional(), service: z.string().optional() }),
-  sites: z.object({
-    name: z.string().trim().min(2, "Nama wajib diisi."),
-    address: z.string().trim().min(5, "Alamat wajib diisi."),
-    lat: z.coerce.number().min(-90).max(90),
-    lng: z.coerce.number().min(-180).max(180),
-    radiusM: z.coerce.number().int().min(20).max(5000),
-    customerId: z.string().optional(),
-  }),
-} as const;
+const KIND_LABEL: Record<MasterKind, string> = { categories: "kategori", products: "produk", priorities: "prioritas", customers: "pelanggan", sites: "lokasi" };
 
 const tables = { categories: s.categories, products: s.products, priorities: s.priorities, customers: s.customers, sites: s.sites } as const;
 
@@ -166,7 +145,7 @@ export async function saveMasterAction(kind: MasterKind, id: string | null, inpu
     const table = tables[kind];
     if (id) await db.update(table).set(data).where(eq(table.id, id));
     else await db.insert(table).values(data as never);
-    await audit(user.id, kind, id ? "update" : "create", `${id ? "Mengubah" : "Menambah"} ${kind}: ${String(data.name)}`, id ?? undefined);
+    await audit(user.id, kind, id ? "update" : "create", `${id ? "Mengubah" : "Menambah"} ${KIND_LABEL[kind]} ${String(data.name)}`, id ?? undefined);
     return done();
   } catch (e) {
     return fail(e);
@@ -177,8 +156,8 @@ export async function deleteMasterAction(kind: MasterKind, id: string): Promise<
   try {
     const { user, db } = await admin();
     const table = tables[kind];
-    await db.delete(table).where(eq(table.id, id));
-    await audit(user.id, kind, "delete", `Menghapus ${kind}`, id);
+    const [gone] = await db.delete(table).where(eq(table.id, id)).returning();
+    await audit(user.id, kind, "delete", `Menghapus ${KIND_LABEL[kind]} ${String((gone as { name?: string } | undefined)?.name ?? "")}`.trim(), id);
     return done();
   } catch (e) {
     return fail(e);
@@ -254,6 +233,73 @@ export async function reorderTemplateItemsAction(templateId: string, ids: string
     });
     await audit(user.id, "checklist_template", "reorder", "Mengubah urutan item", templateId);
     return done();
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+/* ───────────── Template laporan (RLY-103) ───────────── */
+
+const reportFieldSchema = z
+  .object({
+    key: z.string().trim().max(40).optional(),
+    label: z.string().trim().min(1, "Label field wajib diisi.").max(80, "Label field maksimal 80 karakter."),
+    type: z.enum(["text", "textarea", "number", "select", "boolean"]),
+    required: z.boolean(),
+    options: z.array(z.string().trim().min(1).max(40)).max(12).optional(),
+    placeholder: z.string().trim().max(80).optional(),
+  })
+  .refine((f) => f.type !== "select" || new Set(f.options ?? []).size >= 2, { message: "Field Pilihan butuh minimal 2 opsi yang berbeda." });
+
+const slug = (t: string) =>
+  t
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 32) || "field";
+
+/**
+ * Simpan seluruh field template laporan sekaligus → versi naik 1.
+ * Key field lama dipertahankan (data laporan tersimpan per key); field baru diberi key dari labelnya.
+ * Laporan yang sudah dibuat tetap memakai salinan field versinya sendiri.
+ */
+export async function saveReportTemplateAction(templateId: string, input: z.input<typeof reportFieldSchema>[], expectedVersion: number): Promise<Result & { version?: number }> {
+  try {
+    const { user, db } = await admin();
+    const fields = z.array(reportFieldSchema).max(30, "Maksimal 30 field.").parse(input);
+    const [tpl] = await db.select().from(s.reportTemplates).where(eq(s.reportTemplates.id, templateId));
+    if (!tpl) return { ok: false, error: "Template tidak ditemukan." };
+    if (tpl.version !== expectedVersion) return { ok: false, error: "Template baru saja diubah orang lain. Muat ulang halaman." };
+
+    const used = new Set<string>(["findings"]);
+    const next: ReportField[] = fields.map((f) => {
+      let key = f.key && tpl.fields.some((x) => x.key === f.key) ? f.key : slug(f.label);
+      if (used.has(key)) {
+        let i = 2;
+        while (used.has(`${key}_${i}`)) i++;
+        key = `${key}_${i}`;
+      }
+      used.add(key);
+      return {
+        key,
+        label: f.label,
+        type: f.type,
+        required: f.required,
+        ...(f.type === "select" ? { options: [...new Set(f.options)] } : {}),
+        ...(f.placeholder && f.type !== "select" && f.type !== "boolean" ? { placeholder: f.placeholder } : {}),
+      };
+    });
+
+    const [row] = await db
+      .update(s.reportTemplates)
+      .set({ fields: next, version: tpl.version + 1, updatedBy: user.id })
+      .where(and(eq(s.reportTemplates.id, templateId), eq(s.reportTemplates.version, expectedVersion)))
+      .returning({ version: s.reportTemplates.version });
+    if (!row) return { ok: false, error: "Template baru saja diubah orang lain. Muat ulang halaman." };
+    await audit(user.id, "report_template", "update", `Mengubah ${tpl.name} ke versi ${row.version} (${next.length} field)`, templateId);
+    revalidatePath("/", "layout");
+    return { ok: true, version: row.version };
   } catch (e) {
     return fail(e);
   }

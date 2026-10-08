@@ -22,6 +22,20 @@
       "when": 1791367160490,
       "tag": "0002_notifications",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791433128370,
+      "tag": "0003_report_template_versions",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791442244753,
+      "tag": "0004_product_icon",
+      "breakpoints": true
     }
   ]
 }

@@ -1,14 +1,13 @@
 "use client";
 
-import { Search, SlidersHorizontal, X } from "lucide-react";
+import { SlidersHorizontal, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { BottomSheet } from "@/components/relay/bottom-sheet";
 import { SmoothTabs } from "@/components/relay/smooth-tabs";
 import { Button } from "@/components/ui/button";
-import { CloseButton } from "@/components/relay/icon-button";
-import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { SearchInput } from "@/components/relay/search-input";
 
 type Opt = { id: string; name: string };
 type Options = { groups: Opt[]; categories: Opt[]; products: Opt[]; priorities: Opt[]; assignees: Opt[] };
@@ -60,18 +59,7 @@ export function TaskFilterBar({ view, counts, options, showReview }: { view: str
         <SmoothTabs items={tabs} value={view} onChange={(id) => set({ view: id === "active" ? null : id })} />
       </div>
       <div className="flex gap-2">
-        <div data-tour="task-search" className="relative flex-1">
-          <Search className="pointer-events-none absolute left-3.5 top-1/2 size-[17px] -translate-y-1/2 text-muted-foreground" strokeWidth={2.1} />
-          <Input
-            type="search"
-            enterKeyHint="search"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Cari task atau pelanggan"
-            className="h-11 rounded-xl border-border bg-card pl-10 pr-9 shadow-[var(--shadow-card)] placeholder:text-muted-foreground/80 [&::-webkit-search-cancel-button]:hidden"
-          />
-          {q && <CloseButton size="sm" label="Hapus pencarian" onClick={() => setQ("")} className="absolute right-2 top-1/2 -translate-y-1/2" />}
-        </div>
+        <SearchInput data-tour="task-search" value={q} onChange={setQ} placeholder="Cari task atau pelanggan" />
         <BottomSheet
           open={open}
           onOpenChange={setOpen}

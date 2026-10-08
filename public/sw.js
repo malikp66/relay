@@ -1,5 +1,5 @@
 /* Relay service worker — app shell offline + cache aset (RLY-401) + Web Push. */
-const VERSION = "relay-v3";
+const VERSION = "relay-v4"; // v4: ikon baru (relay-icon)
 // Dev (/sw.js?dev=1): hanya push — tanpa cache supaya CSS/JS dev tidak basi.
 const DEV = new URL(self.location.href).searchParams.has("dev");
 const STATIC = `${VERSION}-static`;

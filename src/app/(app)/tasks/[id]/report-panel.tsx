@@ -5,12 +5,10 @@ import { useEffect, useRef, useState } from "react";
 import { saveReportAction } from "@/app/actions/tasks";
 import type { ReportField } from "@/db/schema";
 import type { TaskDetail } from "@/server/queries";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
 import { fmtDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { AREA, LINE } from "@/components/relay/form";
 
 type Values = Record<string, string | number | boolean | null>;
 
@@ -76,7 +74,7 @@ export function ReportPanel({ detail, editable }: { detail: TaskDetail; editable
       {error && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">{error}</p>}
 
       {editable ? (
-        <div className="space-y-4 rounded-2xl border bg-card p-4 shadow-[var(--shadow-card)] sm:p-5">
+        <div className="space-y-5 rounded-2xl border bg-card p-4 shadow-[var(--shadow-card)] sm:p-5">
           {fields.map((f) => (
             <div key={f.key} className="space-y-1.5">
               <Label className="flex items-center gap-1.5 text-[13.5px]">
@@ -91,14 +89,13 @@ export function ReportPanel({ detail, editable }: { detail: TaskDetail; editable
               Temuan / catatan akhir
               <span className="rounded bg-amber-500/10 px-1 text-[10.5px] font-medium text-amber-700 dark:text-amber-400">Wajib</span>
             </Label>
-            <Textarea
+            <textarea
               value={findings}
               onChange={(e) => {
                 setFindings(e.target.value);
                 scheduleSave(values, e.target.value);
               }}
-              rows={3}
-              className="rounded-xl text-base"
+              className={AREA}
               placeholder="Ringkasan hasil pekerjaan dan hal yang perlu diperhatikan."
             />
           </div>
@@ -154,33 +151,52 @@ function formatValue(v: unknown) {
 function FieldInput({ field, value, onChange }: { field: ReportField; value: Values[string] | undefined; onChange: (v: string | number | boolean | null) => void }) {
   switch (field.type) {
     case "textarea":
-      return <Textarea value={(value as string) ?? ""} onChange={(e) => onChange(e.target.value)} rows={3} className="rounded-xl text-base" placeholder={field.placeholder} />;
+      return <textarea value={(value as string) ?? ""} onChange={(e) => onChange(e.target.value)} className={AREA} placeholder={field.placeholder} />;
     case "number":
-      return <Input inputMode="decimal" value={(value as string) ?? ""} onChange={(e) => onChange(e.target.value)} className="h-12 rounded-xl" />;
+      return <input inputMode="decimal" value={(value as string) ?? ""} onChange={(e) => onChange(e.target.value)} className={cn(LINE, "tabular")} placeholder={field.placeholder ?? "0"} />;
     case "boolean":
       return (
-        <div className="flex items-center gap-3">
-          <Switch checked={!!value} onCheckedChange={(c) => onChange(c)} />
-          <span className="text-sm text-muted-foreground">{value ? "Ya" : "Tidak"}</span>
-        </div>
+        <Choices
+          options={[
+            { id: "true", label: "Ya" },
+            { id: "false", label: "Tidak" },
+          ]}
+          value={value === true ? "true" : value === false ? "false" : null}
+          onChange={(v) => onChange(v === "true")}
+        />
       );
     case "select":
-      return (
-        <div className="flex flex-wrap gap-2">
-          {field.options?.map((o) => (
-            <button
-              key={o}
-              type="button"
-              onClick={() => onChange(o)}
-              aria-pressed={value === o}
-              className="chip h-10 rounded-xl"
-            >
-              {o}
-            </button>
-          ))}
-        </div>
-      );
+      return <Choices options={(field.options ?? []).map((o) => ({ id: o, label: o }))} value={(value as string) ?? null} onChange={onChange} />;
     default:
-      return <Input value={(value as string) ?? ""} onChange={(e) => onChange(e.target.value)} className="h-12 rounded-xl" placeholder={field.placeholder} />;
+      return <input value={(value as string) ?? ""} onChange={(e) => onChange(e.target.value)} className={LINE} placeholder={field.placeholder} />;
   }
+}
+
+/** Pilihan & Ya/Tidak: tombol bersekat setinggi kotak isian (44px), dua kolom di HP. */
+function Choices({ options, value, onChange }: { options: { id: string; label: string }[]; value: string | null; onChange: (v: string) => void }) {
+  return (
+    <div role="radiogroup" className={cn("grid gap-2", options.length > 2 ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-2")}>
+      {options.map((o) => {
+        const on = value === o.id;
+        return (
+          <button
+            key={o.id}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            onClick={() => onChange(o.id)}
+            className={cn(
+              "flex min-h-11 min-w-0 items-center gap-2 rounded-xl border px-3.5 py-2 text-left text-[14px] leading-snug outline-none transition-[border-color,background-color] duration-150 focus-visible:ring-[3px] focus-visible:ring-ring/30",
+              on ? "border-primary/60 bg-primary/[0.06] font-medium" : "border-input bg-background hover:border-foreground/25 dark:bg-input/30",
+            )}
+          >
+            <span className={cn("flex size-4 shrink-0 items-center justify-center rounded-full border transition-colors duration-150", on ? "border-primary bg-primary" : "border-foreground/25")}>
+              {on && <span className="size-1.5 rounded-full bg-primary-foreground" />}
+            </span>
+            <span className="min-w-0 break-words">{o.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
 }

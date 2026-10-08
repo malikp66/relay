@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { notify } from "@/components/relay/notify";
 import { saveChecklistResponseAction } from "@/app/actions/tasks";
 import { PhotoUploader } from "@/components/relay/photo-uploader";
-import { Input } from "@/components/ui/input";
+import { TextInput } from "@/components/relay/form";
 import type { TaskDetail } from "@/server/queries";
 import { fmtDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -153,23 +153,21 @@ function ChecklistItemCard({ item, index, editable }: { item: Item; index: numbe
       <div className="mt-3 pl-[38px]">
         {item.type === "data" ? (
           editable ? (
-            <div className="relative">
-              <Input
-                value={value}
-                inputMode={item.unit && item.unit !== "°C" ? "decimal" : "text"}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setValue(v);
-                  if (timer.current) clearTimeout(timer.current);
-                  timer.current = setTimeout(() => flush(v), 800);
-                }}
-                onBlur={() => flush(value)}
-                onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
-                placeholder="Isi nilai"
-                className="h-12 rounded-xl pr-16 text-base"
-              />
-              {item.unit && <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">{item.unit}</span>}
-            </div>
+            <TextInput
+              value={value}
+              suffix={item.unit ?? undefined}
+              aria-label={item.label}
+              inputMode={item.unit && item.unit !== "°C" ? "decimal" : "text"}
+              onChange={(e) => {
+                const v = e.target.value;
+                setValue(v);
+                if (timer.current) clearTimeout(timer.current);
+                timer.current = setTimeout(() => flush(v), 800);
+              }}
+              onBlur={() => flush(value)}
+              onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+              placeholder="Isi nilai"
+            />
           ) : (
             <div
               className={cn(

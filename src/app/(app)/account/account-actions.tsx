@@ -6,7 +6,7 @@ import { Compass, LogOut } from "lucide-react";
 import { useTour } from "@/components/tour/tour-provider";
 import { changePasswordAction, logoutAction } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { TextInput } from "@/components/relay/form";
 import { Label } from "@/components/ui/label";
 
 export function AccountActions() {
@@ -22,11 +22,11 @@ export function AccountActions() {
         <p className="font-medium">Ganti password</p>
         <div className="space-y-1.5">
           <Label htmlFor="current">Password lama</Label>
-          <Input id="current" name="current" type="password" className="h-11 rounded-xl" required />
+          <TextInput id="current" name="current" type="password" autoComplete="current-password" required />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="next">Password baru</Label>
-          <Input id="next" name="next" type="password" minLength={8} className="h-11 rounded-xl" required />
+          <TextInput id="next" name="next" type="password" autoComplete="new-password" minLength={8} required />
         </div>
         {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
         <Button disabled={pending} className="h-11 w-full rounded-xl">

@@ -104,6 +104,8 @@ export const PAGE_TOURS: PageTour[] = [
     match: exact("/schedule"),
     title: "Jadwal",
     steps: [
+      { target: "sched-filters", title: "Filter jadwal", body: "Saring menurut status, kategori, produk, crew, atau teknisi. Kalender, agenda, dan ringkasan ikut menyesuaikan." },
+      { target: "sched-metrics", title: "Ringkasan minggu ini", body: "Jumlah jadwal minggu yang dipilih: belum dikerjakan (termasuk yang lewat jam mulai), sedang berjalan, dan selesai." },
       { target: "sched-calendar", title: "Kalender", body: "Titik warna = ada jadwal di hari itu. Ketuk tanggal untuk melihat minggunya." },
       { target: "sched-agenda", title: "Agenda minggu ini", body: "Semua kunjungan per hari dengan jam, status, lokasi, dan teknisi." },
       { target: "sched-weeknav", title: "Pindah minggu", body: "Geser ke minggu sebelum atau sesudahnya." },
@@ -130,7 +132,10 @@ export const PAGE_TOURS: PageTour[] = [
       { target: "tpl-products", title: "Pilih template", body: "Satu template untuk tiap kombinasi kategori × produk." },
       { target: "tpl-items", title: "Item checklist", body: "Seret pegangan ⠿ untuk mengubah urutan, klik label untuk mengubah teks, atur wajib/opsional, atau hapus item. Perubahan hanya berlaku untuk task baru." },
       { target: "tpl-add", title: "Tambah item", body: "Pilih tipe: centang, isi data (dengan satuan), atau foto." },
-      { target: "tpl-preview", title: "Pratinjau", body: "Lihat checklist persis seperti yang muncul di HP teknisi, ikut berubah saat item diubah atau diseret." },
+      { target: "tpl-preview", title: "Tampilan di HP teknisi", body: "Begini checklist ini terlihat di HP teknisi. Ikut berubah saat kamu mengedit." },
+      { target: "rpt-fields", title: "Field laporan", body: "Ubah label, tipe (teks, angka, pilihan, ya/tidak), wajib, dan urutan. Field Pilihan diisi opsinya langsung di baris itu." },
+      { target: "rpt-add", title: "Tambah field", body: "Ketik label, pilih tipe, lalu Tambah. Tekan Simpan di bar bawah untuk membuat versi baru." },
+      { target: "rpt-preview", title: "Tampilan di HP teknisi", body: "Begini form laporan terlihat saat teknisi mengisinya. Laporan yang sudah dibuat tetap memakai versi lamanya." },
     ],
   },
   {
@@ -172,7 +177,10 @@ export const PAGE_TOURS: PageTour[] = [
   {
     match: exact("/admin/audit"),
     title: "Audit log",
-    steps: [{ target: "audit-list", title: "Jejak perubahan", body: "Setiap perubahan master data tercatat: siapa, apa, dan kapan." }],
+    steps: [
+      { target: "audit-filters", title: "Cari & saring", body: "Cari kata di aktivitas, atau saring menurut jenis data, aksi, dan pelaku." },
+      { target: "audit-list", title: "Jejak perubahan", body: "Setiap perubahan master data, user, dan template tercatat per hari: siapa, apa, kapan. Tekan Buka untuk ke halaman datanya." },
+    ],
   },
   {
     match: exact("/account"),

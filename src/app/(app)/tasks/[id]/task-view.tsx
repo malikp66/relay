@@ -38,8 +38,10 @@ import { SmoothTabs } from "@/components/relay/smooth-tabs";
 import { PriorityLabel, StatusBadge } from "@/components/relay/badges";
 import { Avatar } from "@/components/relay/avatar-stack";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { fmtDateTime, fmtTime, slaState } from "@/lib/format";
+import { fmtDateTime, fmtDuration, fmtTime, slaState } from "@/lib/format";
+import { useAlert } from "@/components/relay/alert";
+import { TextArea } from "@/components/relay/form";
+import { nowMs } from "@/lib/clock";
 import { STATUS_META } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 import { ChecklistPanel, isItemDone } from "./checklist-panel";
@@ -314,6 +316,23 @@ function ActionBar({ detail, perms, missing, goTab }: { detail: TaskDetail; perm
   const [pending, start] = useTransition();
   const [sheet, setSheet] = useState<null | "missing" | "revision" | "cancel" | "geo">(null);
   const [comment, setComment] = useState("");
+  const { confirm } = useAlert();
+
+  // Check-out menghentikan pencatatan waktu di lokasi → konfirmasi dulu (bukan aksi sekali ketuk)
+  async function confirmCheckOut() {
+    const mine = detail.attendance.find((r) => r.a.id === detail.myOpenAttendance?.id);
+    const since = mine ? new Date(mine.a.checkInAt) : null;
+    const ok = await confirm({
+      title: "Check-out dari lokasi?",
+      description: since
+        ? `Kamu di lokasi sejak ${fmtTime(since)} (${fmtDuration(nowMs() - since.getTime())}). Waktu di lokasi berhenti dicatat. Pakai ini bila meninggalkan lokasi sebelum pekerjaan selesai; saat Job Done, check-out terjadi otomatis.`
+        : "Waktu di lokasi berhenti dicatat. Saat Job Done, check-out terjadi otomatis.",
+      tone: "warning",
+      confirmLabel: "Check-out",
+      cancelLabel: "Tetap di lokasi",
+    });
+    if (ok) run(() => checkOutAction(t.id), "Check-out berhasil");
+  }
 
   const run = (fn: () => Promise<{ ok: boolean; error?: string }>, success: string, after?: () => void) =>
     start(async () => {
@@ -357,7 +376,7 @@ function ActionBar({ detail, perms, missing, goTab }: { detail: TaskDetail; perm
       content = (
         <div className="flex gap-2">
           {perms.openHere && (
-            <Button variant="outline" className="h-14 shrink-0 flex-col gap-0.5 rounded-2xl bg-card px-3.5 text-[11px] font-medium shadow-[var(--shadow-card)]" disabled={pending} onClick={() => run(() => checkOutAction(t.id), "Check-out berhasil")}>
+            <Button variant="outline" className="h-14 shrink-0 flex-col gap-0.5 rounded-2xl bg-card px-3.5 text-[11px] font-medium shadow-[var(--shadow-card)]" disabled={pending} onClick={confirmCheckOut}>
               <LogOut className="size-[18px]" />
               Check-out
             </Button>
@@ -435,7 +454,7 @@ function ActionBar({ detail, perms, missing, goTab }: { detail: TaskDetail; perm
       </BottomSheet>
 
       <BottomSheet open={sheet === "revision"} onOpenChange={(o) => !o && setSheet(null)} title="Minta revisi" description="Task akan kembali ke teknisi. Tulis apa yang perlu diperbaiki.">
-        <Textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={4} placeholder="mis. Foto hasil splice kurang jelas, mohon foto ulang lebih dekat." className="rounded-xl" />
+        <TextArea value={comment} onChange={(e) => setComment(e.target.value)} placeholder="mis. Foto hasil splice kurang jelas, mohon foto ulang lebih dekat." aria-label="Komentar revisi" />
         <div className="mt-2 flex flex-wrap gap-2">
           {["Foto kurang jelas", "Nilai pengukuran belum diisi", "Tindakan kurang detail"].map((q) => (
             <button key={q} type="button" onClick={() => setComment((c) => (c ? `${c} ${q}.` : `${q}.`))} className="rounded-full border px-3 py-1.5 text-xs hover:bg-muted">
@@ -449,7 +468,7 @@ function ActionBar({ detail, perms, missing, goTab }: { detail: TaskDetail; perm
       </BottomSheet>
 
       <BottomSheet open={sheet === "cancel"} onOpenChange={(o) => !o && setSheet(null)} title="Batalkan task" description="Alasan pembatalan wajib diisi dan tercatat di riwayat.">
-        <Textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={3} placeholder="mis. Pelanggan membatalkan komplain." className="rounded-xl" />
+        <TextArea value={comment} onChange={(e) => setComment(e.target.value)} placeholder="mis. Pelanggan membatalkan komplain." aria-label="Alasan pembatalan" />
         <Button className="mt-4 h-12 w-full rounded-xl" variant="destructive" disabled={pending || !comment.trim()} onClick={() => run(() => transitionAction(t.id, "cancel", comment), "Task dibatalkan", () => { setSheet(null); setComment(""); })}>
           Batalkan task
         </Button>

@@ -1,25 +1,25 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { Reorder, useDragControls } from "motion/react";
 import { useMemo, useState, useTransition } from "react";
 import {
-  ArrowDown,
-  ArrowUp,
+  ArrowDownWideNarrow,
   Box,
-  Cable,
   CalendarClock,
   Check,
+  ChevronLeft,
+  ChevronRight,
+  CircleAlert,
+  GripVertical,
   Hash,
   Image as ImageIcon,
   Loader2,
   MapPin,
-  MonitorPlay,
   Plus,
-  RadioTower,
   RotateCcw,
   Search,
   Trash2,
-  Tv,
   Wrench,
   X,
 } from "lucide-react";
@@ -30,17 +30,23 @@ import { PriorityLabel } from "@/components/relay/badges";
 import { DateTimePicker, toLocalDateTime, type Preset } from "@/components/relay/date-time-picker";
 import { IconButton } from "@/components/relay/icon-button";
 import { UnitSelect } from "@/components/relay/unit-select";
+import { Segmented } from "@/components/relay/segmented";
+import { TextArea, TextInput } from "@/components/relay/form";
+import { SearchInput } from "@/components/relay/search-input";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { ProductIcon } from "@/lib/product-icons";
 
 type Item = { label: string; type: "tick" | "data" | "photo"; unit: string; required: boolean };
+type Draft = Item & { uid: string };
+let seq = 0;
+const uid = () => `i${++seq}`;
 type Props = {
   categories: { id: string; name: string; code: string; groupId: string; groupName: string }[];
-  products: { id: string; name: string; code: string }[];
+  products: { id: string; name: string; code: string; icon: string | null }[];
   priorities: { id: string; name: string; level: number; slaHours: number }[];
   sites: { id: string; name: string; address: string; customerId: string | null }[];
   customers: { id: string; name: string; customerNo: string }[];
@@ -56,7 +62,6 @@ const TYPES = [
 ] as const;
 
 const CATEGORY_ICON: Record<string, typeof Wrench> = { TS: Wrench, MT: CalendarClock };
-const PRODUCT_ICON: Record<string, typeof Wrench> = { FO: Cable, RD: RadioTower, IP: Tv, DT: MonitorPlay };
 const TITLE_HINTS: Record<string, string[]> = {
   TS: ["Internet mati total", "Koneksi lambat", "Redaman tinggi", "Perangkat rusak"],
   MT: ["Maintenance rutin", "Pembersihan perangkat", "Pengukuran redaman", "Penggantian baterai"],
@@ -98,7 +103,8 @@ export function NewTaskForm(p: Props) {
   const [dueAt, setDueAt] = useState("");
   const [dueTouched, setDueTouched] = useState(false);
   const [assignees, setAssignees] = useState<string[]>([]);
-  const [items, setItems] = useState<Item[]>([]);
+  const [items, setItems] = useState<Draft[]>([]);
+  const [attempted, setAttempted] = useState(false);
 
   const category = p.categories.find((c) => c.id === categoryId);
   const product = p.products.find((x) => x.id === productId);
@@ -132,7 +138,7 @@ export function NewTaskForm(p: Props) {
 
   function pickTemplate(cat: string, prod: string) {
     const tpl = p.templates.find((t) => t.categoryId === cat && t.productId === prod);
-    setItems(tpl ? tpl.items.map((i) => ({ ...i })) : []);
+    setItems(tpl ? tpl.items.map((i) => ({ ...i, uid: uid() })) : []);
   }
 
   const updateItem = (i: number, patch: Partial<Item>) => setItems((arr) => arr.map((it, idx) => (idx === i ? { ...it, ...patch } : it)));
@@ -145,12 +151,20 @@ export function NewTaskForm(p: Props) {
       return next;
     });
 
-  const goTo = (step: number) => document.querySelector(`[data-tour="new-${step}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  const goTo = (step: number, focus = false) => {
+    const el = document.querySelector<HTMLElement>(`[data-tour="new-${step}"]`);
+    el?.scrollIntoView({ behavior: "smooth", block: "start" });
+    // arahkan kursor ke isian pertama di kartu itu (tanpa menggulir ulang)
+    if (focus) setTimeout(() => (el?.querySelector<HTMLElement>("[data-autofocus]") ?? el?.querySelector<HTMLElement>("input, textarea, button"))?.focus({ preventScroll: true }), 350);
+  };
+  // tandai kartu yang kurang hanya setelah user mencoba menyimpan (bukan sejak awal)
+  const errorsFor = (step: number) => (attempted ? missing.filter((m) => m.step === step).map((m) => m.label) : []);
 
   function submit() {
     if (missing.length) {
-      notify.error(missing[0].label);
-      goTo(missing[0].step);
+      setAttempted(true);
+      notify.error(missing.length === 1 ? missing[0].label : `${missing.length} bagian belum lengkap`, missing.length > 1 ? { description: missing.map((m) => m.label).join(" · ") } : undefined);
+      goTo(missing[0].step, true);
       return;
     }
     start(async () => {
@@ -165,7 +179,7 @@ export function NewTaskForm(p: Props) {
         scheduledFor: new Date(scheduledFor).toISOString(),
         dueAt: effectiveDue ? new Date(effectiveDue).toISOString() : "",
         assigneeIds: assignees,
-        items: items.map((i) => ({ ...i, unit: i.unit || undefined })),
+        items: items.map((i) => ({ label: i.label, type: i.type, required: i.required, unit: i.unit || undefined })),
       });
       if (res.ok) {
         notify.success("Task dibuat & ditugaskan");
@@ -184,7 +198,7 @@ export function NewTaskForm(p: Props) {
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start">
       <div className="min-w-0 space-y-4">
         {/* 1 — Kategori & produk */}
-        <Step step={1} done={doneSteps.has(1)} title="Kategori & produk" hint="Menentukan crew yang menangani dan template checklist.">
+        <Step step={1} done={doneSteps.has(1)} errors={errorsFor(1)} title="Kategori & produk" hint="Menentukan crew yang menangani dan template checklist.">
           <div className={cn("grid gap-2", p.categories.length > 1 ? "grid-cols-2" : "grid-cols-1")}>
             {p.categories.map((c) => {
               const Icon = CATEGORY_ICON[c.code] ?? Box;
@@ -218,7 +232,6 @@ export function NewTaskForm(p: Props) {
             <p className="mb-2 text-[12.5px] font-medium text-muted-foreground">Produk</p>
             <div className="flex flex-wrap gap-2">
               {p.products.map((x) => {
-                const Icon = PRODUCT_ICON[x.code] ?? Box;
                 return (
                   <button
                     key={x.id}
@@ -228,9 +241,10 @@ export function NewTaskForm(p: Props) {
                       pickTemplate(categoryId, x.id);
                     }}
                     aria-pressed={productId === x.id}
+                    data-autofocus
                     className="chip h-10 gap-1.5"
                   >
-                    <Icon className="size-4 opacity-70" />
+                    <ProductIcon id={x.icon} className="size-4 opacity-70" />
                     {x.name}
                   </button>
                 );
@@ -240,14 +254,14 @@ export function NewTaskForm(p: Props) {
         </Step>
 
         {/* 2 — Detail */}
-        <Step step={2} done={doneSteps.has(2)} title="Detail pekerjaan">
+        <Step step={2} done={doneSteps.has(2)} errors={errorsFor(2)} title="Detail pekerjaan">
           <div className="space-y-2">
             <Label htmlFor="nt-title" className="text-[13px]">
               Judul
             </Label>
-            <Input id="nt-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={isTS ? "mis. Internet mati total" : "mis. Maintenance rutin ODC"} className="h-12 rounded-xl text-base sm:text-[14.5px]" />
+            <TextInput id="nt-title" data-autofocus invalid={attempted && title.trim().length < 3} value={title} onChange={(e) => setTitle(e.target.value)} placeholder={isTS ? "mis. Internet mati total" : "mis. Maintenance rutin ODC"} />
             {!title && (
-              <div className="flex gap-1.5 overflow-x-auto pb-0.5 [mask-image:linear-gradient(to_right,black_85%,transparent)] [scrollbar-width:none]">
+              <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-0.5 [mask-image:linear-gradient(to_right,black_85%,transparent)] [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:[mask-image:none]">
                 {(TITLE_HINTS[category?.code ?? ""] ?? []).map((h) => (
                   <button key={h} type="button" onClick={() => setTitle(product ? `${h} · ${product.name}` : h)} className="chip h-8 shrink-0 px-3 text-[12.5px]">
                     <Plus className="size-3.5 opacity-60" />
@@ -261,12 +275,12 @@ export function NewTaskForm(p: Props) {
             <Label htmlFor="nt-desc" className="text-[13px]">
               Deskripsi <span className="font-normal text-muted-foreground">· opsional</span>
             </Label>
-            <Textarea id="nt-desc" value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className="rounded-xl text-base sm:text-[14.5px]" placeholder="Informasi tambahan untuk teknisi, mis. patokan lokasi atau kontak di tempat." />
+            <TextArea id="nt-desc" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Informasi tambahan untuk teknisi, mis. patokan lokasi atau kontak di tempat." />
           </div>
         </Step>
 
         {/* 3 — Lokasi */}
-        <Step step={3} done={doneSteps.has(3)} title={isTS ? "Pelanggan & lokasi" : "Lokasi"} hint="Titik lokasi dipakai untuk verifikasi check-in teknisi.">
+        <Step step={3} done={doneSteps.has(3)} errors={errorsFor(3)} title={isTS ? "Pelanggan & lokasi" : "Lokasi"} hint="Titik lokasi dipakai untuk verifikasi check-in teknisi.">
           {site ? (
             <div className="flex items-start gap-3 rounded-xl border bg-foreground/[0.02] p-3">
               <span className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-primary/10 text-primary">
@@ -287,6 +301,7 @@ export function NewTaskForm(p: Props) {
                 <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                 <input
                   value={siteQuery}
+                  data-autofocus
                   onChange={(e) => setSiteQuery(e.target.value)}
                   placeholder={isTS ? "Cari nama pelanggan atau alamat" : "Cari site (ODC, BTS, headend…)"}
                   className="h-12 w-full bg-transparent pl-10 pr-10 text-base outline-none placeholder:text-muted-foreground sm:text-[14.5px]"
@@ -315,7 +330,7 @@ export function NewTaskForm(p: Props) {
         </Step>
 
         {/* 4 — Prioritas & jadwal */}
-        <Step step={4} done={doneSteps.has(4)} title="Prioritas & jadwal" hint="Deadline dihitung otomatis dari SLA prioritas dan tetap bisa diubah.">
+        <Step step={4} done={doneSteps.has(4)} errors={errorsFor(4)} title="Prioritas & jadwal" hint="Deadline dihitung otomatis dari SLA prioritas dan tetap bisa diubah.">
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {p.priorities.map((x) => (
               <button key={x.id} type="button" onClick={() => setPriorityId(x.id)} aria-pressed={priorityId === x.id} className="card-interactive rounded-xl px-3 py-2.5 text-left">
@@ -324,7 +339,7 @@ export function NewTaskForm(p: Props) {
               </button>
             ))}
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,220px),1fr))] gap-3">
             <div className="space-y-2">
               <Label className="text-[13px]">Jadwal mulai</Label>
               <DateTimePicker value={scheduledFor} onChange={setScheduledFor} presets={SCHEDULE_PRESETS} />
@@ -353,100 +368,36 @@ export function NewTaskForm(p: Props) {
         </Step>
 
         {/* 5 — Teknisi */}
-        <Step step={5} done={doneSteps.has(5)} title="Teknisi" hint={`Dari ${category?.groupName ?? "crew"}. Bisa lebih dari satu, mereka berbagi satu checklist dan satu laporan.`} count={assignees.length || undefined}>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {techs.map((t) => {
-              const on = assignees.includes(t.id);
-              const busy = t.load >= 4 ? "Padat" : t.load >= 2 ? "Sedang" : "Longgar";
-              return (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => setAssignees((a) => (on ? a.filter((x) => x !== t.id) : [...a, t.id]))}
-                  aria-pressed={on}
-                  className="card-interactive flex items-center gap-3 rounded-xl p-3 text-left"
-                >
-                  <Avatar id={t.id} name={t.name} />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[14px] font-medium">{t.name}</span>
-                    <span className="mt-1 flex items-center gap-2">
-                      <span className="flex gap-0.5" aria-hidden>
-                        {[0, 1, 2, 3, 4].map((i) => (
-                          <span key={i} className={cn("h-1.5 w-2.5 rounded-full", i < Math.min(t.load, 5) ? (t.load >= 4 ? "bg-amber-500" : "bg-foreground/40") : "bg-foreground/10")} />
-                        ))}
-                      </span>
-                      <span className="tabular text-[12px] text-muted-foreground">
-                        {t.load} aktif · {busy}
-                      </span>
-                    </span>
-                  </span>
-                  <span className={cn("flex size-[22px] shrink-0 items-center justify-center rounded-full border transition-[background-color,border-color,transform] duration-200 ease-[var(--ease-out)]", on ? "scale-100 border-primary bg-primary text-primary-foreground" : "scale-95 border-foreground/20")}>
-                    {on && <Check className="size-3.5" strokeWidth={3} />}
-                  </span>
-                </button>
-              );
-            })}
-            {!techs.length && <p className="rounded-xl border border-dashed px-4 py-5 text-center text-[13px] text-muted-foreground sm:col-span-2">Belum ada teknisi di crew ini.</p>}
-          </div>
+        <Step step={5} done={doneSteps.has(5)} errors={errorsFor(5)} title="Teknisi" hint={`Dari ${category?.groupName ?? "crew"}. Bisa lebih dari satu, mereka berbagi satu checklist dan satu laporan.`} count={assignees.length || undefined}>
+          <TechnicianPicker key={category?.groupId} techs={techs} selected={assignees} onToggle={(id) => setAssignees((a) => (a.includes(id) ? a.filter((x) => x !== id) : [...a, id]))} />
         </Step>
 
         {/* 6 — Checklist */}
         <Step
           step={6}
+          errors={errorsFor(6)}
           done={doneSteps.has(6) && items.length > 0}
           title="Checklist"
           count={items.length || undefined}
-          hint={productId ? "Diisi dari template. Tambah, hapus, ubah tipe, atau atur urutan untuk task ini." : "Pilih produk di langkah 1 untuk memuat template."}
+          hint={productId ? "Diisi dari template. Seret ⠿ untuk mengubah urutan, ubah tipe, atau hapus item khusus untuk task ini." : "Pilih produk di langkah 1 untuk memuat template."}
         >
           {items.length > 0 && (
-            <ol className="space-y-2">
+            <Reorder.Group as="ol" axis="y" values={items} onReorder={setItems} className="space-y-2">
               {items.map((it, i) => (
-                <li key={i} className="rounded-xl border bg-card p-2.5 pl-3">
-                  <div className="flex items-center gap-2">
-                    <span className="tabular w-5 shrink-0 text-center text-[12px] font-medium text-muted-foreground">{i + 1}</span>
-                    <Input
-                      value={it.label}
-                      onChange={(e) => updateItem(i, { label: e.target.value })}
-                      className={cn("h-10 flex-1 rounded-lg border-transparent bg-foreground/[0.03] text-[14px] shadow-none focus-visible:bg-background", !it.label.trim() && "border-amber-500/40")}
-                      placeholder="Tulis item pekerjaan"
-                    />
-                    <IconButton icon={Trash2} label="Hapus item" className="hover:bg-red-500/10 hover:text-red-600" onClick={() => setItems((arr) => arr.filter((_, idx) => idx !== i))} />
-                  </div>
-                  <div className="mt-2 flex flex-wrap items-center gap-2 pl-7">
-                    <div className="flex rounded-lg bg-foreground/[0.05] p-0.5">
-                      {TYPES.map((tp) => (
-                        <button
-                          key={tp.id}
-                          type="button"
-                          aria-label={tp.label}
-                          aria-pressed={it.type === tp.id}
-                          onClick={() => updateItem(i, { type: tp.id })}
-                          className={cn(
-                            "flex h-7 items-center gap-1 rounded-md px-2 text-[12px] font-medium transition-[color,background-color,box-shadow] duration-150",
-                            it.type === tp.id ? "bg-background text-foreground shadow-[0_1px_2px_rgb(0_0_0/0.08)] dark:bg-white/10" : "text-muted-foreground hover:text-foreground",
-                          )}
-                        >
-                          <tp.icon className="size-3.5" />
-                          <span className={cn(it.type === tp.id ? "inline" : "hidden sm:inline")}>{tp.label}</span>
-                        </button>
-                      ))}
-                    </div>
-                    {it.type === "data" && <UnitSelect value={it.unit} onChange={(unit) => updateItem(i, { unit })} />}
-                    <label className="ml-auto flex cursor-pointer items-center gap-2 text-[12px] text-muted-foreground">
-                      Wajib <Switch checked={it.required} onCheckedChange={(c) => updateItem(i, { required: c })} />
-                    </label>
-                    <span className="flex">
-                      <IconButton icon={ArrowUp} label="Naikkan" size="sm" disabled={i === 0} onClick={() => move(i, -1)} />
-                      <IconButton icon={ArrowDown} label="Turunkan" size="sm" disabled={i === items.length - 1} onClick={() => move(i, 1)} />
-                    </span>
-                  </div>
-                </li>
+                <ChecklistRow
+                  key={it.uid}
+                  item={it}
+                  index={i}
+                  onChange={(patch) => updateItem(i, patch)}
+                  onMove={(d) => move(i, d)}
+                  onRemove={() => setItems((arr) => arr.filter((x) => x.uid !== it.uid))}
+                />
               ))}
-            </ol>
+            </Reorder.Group>
           )}
           <button
             type="button"
-            onClick={() => setItems((a) => [...a, { label: "", type: "tick", unit: "", required: true }])}
+            onClick={() => setItems((a) => [...a, { uid: uid(), label: "", type: "tick", unit: "", required: true }])}
             className="press flex h-11 w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-foreground/15 text-[13.5px] font-medium text-muted-foreground transition-colors duration-150 hover:border-foreground/30 hover:bg-foreground/[0.02] hover:text-foreground"
           >
             <Plus className="size-4" /> Tambah item
@@ -476,7 +427,7 @@ export function NewTaskForm(p: Props) {
                 {missing.map((m) => (
                   <li key={m.label}>
                     <button type="button" onClick={() => goTo(m.step)} className="flex w-full items-center gap-2 text-left text-[12.5px] text-muted-foreground hover:text-foreground">
-                      <span className="size-1.5 shrink-0 rounded-full bg-amber-500" />
+                      <span className={cn("size-1.5 shrink-0 rounded-full", attempted ? "bg-red-500" : "bg-amber-500")} />
                       {m.label}
                     </button>
                   </li>
@@ -504,7 +455,7 @@ export function NewTaskForm(p: Props) {
         <p className="mb-2 flex items-center gap-1.5 text-[12px] text-muted-foreground">
           {missing.length ? (
             <>
-              <span className="size-1.5 rounded-full bg-amber-500" />
+              <span className={cn("size-1.5 rounded-full", attempted ? "bg-red-500" : "bg-amber-500")} />
               <span className="tabular">{missing.length}</span> hal lagi · <button type="button" onClick={() => goTo(missing[0].step)} className="font-medium text-foreground underline-offset-2 hover:underline">{missing[0].label}</button>
             </>
           ) : (
@@ -526,17 +477,25 @@ export function NewTaskForm(p: Props) {
   );
 }
 
-function Step({ step, done, title, hint, count, children }: { step: number; done?: boolean; title: string; hint?: string; count?: number; children: React.ReactNode }) {
+function Step({ step, done, errors = [], title, hint, count, children }: { step: number; done?: boolean; errors?: string[]; title: string; hint?: string; count?: number; children: React.ReactNode }) {
+  const invalid = errors.length > 0;
   return (
-    <section data-tour={`new-${step}`} className="scroll-mt-20 rounded-2xl border bg-card p-4 shadow-[var(--shadow-card)] sm:p-5">
+    <section
+      data-tour={`new-${step}`}
+      data-invalid={invalid || undefined}
+      className={cn(
+        "scroll-mt-20 rounded-2xl border bg-card p-4 shadow-[var(--shadow-card)] transition-[border-color,box-shadow] duration-200 sm:p-5",
+        invalid && "border-red-500/60 shadow-[0_0_0_4px_rgb(239_68_68/0.09)] dark:border-red-400/50 dark:shadow-[0_0_0_4px_rgb(248_113_113/0.1)]",
+      )}
+    >
       <div className="mb-4 flex items-start gap-3">
         <span
           className={cn(
             "tabular relative mt-px flex size-6 shrink-0 items-center justify-center rounded-full text-[12px] font-semibold transition-colors duration-200 ease-[var(--ease-out)]",
-            done ? "bg-emerald-500 text-white" : "bg-foreground/[0.07] text-foreground",
+            done ? "bg-emerald-500 text-white" : invalid ? "bg-red-500 text-white" : "bg-foreground/[0.07] text-foreground",
           )}
         >
-          <span className={cn("transition-[opacity,transform] duration-200 ease-[var(--ease-out)]", done ? "scale-50 opacity-0" : "scale-100 opacity-100")}>{step}</span>
+          <span className={cn("transition-[opacity,transform] duration-200 ease-[var(--ease-out)]", done ? "scale-50 opacity-0" : "scale-100 opacity-100")}>{invalid ? "!" : step}</span>
           <Check className={cn("absolute size-3.5 transition-[opacity,transform] duration-200 ease-[var(--ease-out)]", done ? "scale-100 opacity-100" : "scale-50 opacity-0")} strokeWidth={3} />
         </span>
         <div className="min-w-0 flex-1">
@@ -545,6 +504,12 @@ function Step({ step, done, title, hint, count, children }: { step: number; done
             {count ? <span className="tabular rounded-md bg-foreground/[0.06] px-1.5 text-[11.5px] font-medium text-muted-foreground">{count}</span> : null}
           </h2>
           {hint && <p className="mt-0.5 text-[12.5px] leading-relaxed text-muted-foreground">{hint}</p>}
+          {invalid && (
+            <p role="alert" className="mt-2 flex items-start gap-1.5 text-[12.5px] font-medium leading-snug text-red-600 animate-in fade-in slide-in-from-top-1 duration-200 dark:text-red-400">
+              <CircleAlert className="mt-px size-3.5 shrink-0" />
+              {errors.join(" · ")}
+            </p>
+          )}
         </div>
       </div>
       <div className="space-y-4">{children}</div>
@@ -557,6 +522,173 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
     <div className="flex items-baseline justify-between gap-3 px-4 py-2.5">
       <dt className="shrink-0 text-muted-foreground">{label}</dt>
       <dd className={cn("min-w-0 truncate text-right font-medium", (value === "Belum dipilih" || value === "Belum ada") && "font-normal text-muted-foreground")}>{value}</dd>
+    </div>
+  );
+}
+
+/** Satu item checklist: seret lewat pegangan ⠿ (mouse/jari), atau fokus pegangan lalu ↑/↓ di keyboard. */
+function ChecklistRow({ item, index, onChange, onMove, onRemove }: { item: Draft; index: number; onChange: (p: Partial<Item>) => void; onMove: (d: -1 | 1) => void; onRemove: () => void }) {
+  const controls = useDragControls();
+  const [dragging, setDragging] = useState(false);
+  return (
+    <Reorder.Item
+      as="li"
+      value={item}
+      dragListener={false}
+      dragControls={controls}
+      onDragStart={() => setDragging(true)}
+      onDragEnd={() => setDragging(false)}
+      whileDrag={{ scale: 1.015 }}
+      transition={{ type: "spring", stiffness: 600, damping: 45 }}
+      className={cn("relative rounded-xl border bg-card p-2.5 pl-1.5", dragging && "z-10 shadow-[var(--shadow-pop)] ring-1 ring-foreground/10")}
+    >
+      <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          aria-label={`Ubah urutan item ${index + 1}. Seret, atau tekan panah atas/bawah`}
+          onPointerDown={(e) => {
+            e.preventDefault();
+            controls.start(e);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "ArrowUp") {
+              e.preventDefault();
+              onMove(-1);
+            }
+            if (e.key === "ArrowDown") {
+              e.preventDefault();
+              onMove(1);
+            }
+          }}
+          className={cn("flex h-10 w-7 shrink-0 touch-none items-center justify-center rounded-lg text-muted-foreground/60 outline-none transition-colors duration-150 hover:bg-foreground/[0.05] hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50", dragging ? "cursor-grabbing" : "cursor-grab")}
+        >
+          <GripVertical className="size-4" />
+        </button>
+        <span className="tabular flex size-6 shrink-0 items-center justify-center rounded-full bg-foreground/[0.06] text-[12px] font-semibold text-muted-foreground">{index + 1}</span>
+        <Input
+          value={item.label}
+          onChange={(e) => onChange({ label: e.target.value })}
+          className={cn("h-10 flex-1 rounded-lg border-transparent bg-foreground/[0.03] text-[14px] shadow-none focus-visible:bg-background", !item.label.trim() && "border-amber-500/40")}
+          placeholder="Tulis item pekerjaan"
+        />
+        <IconButton icon={Trash2} label="Hapus item" className="hover:bg-red-500/10 hover:text-red-600" onClick={onRemove} />
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-2 pl-[66px]">
+        <Segmented label="Tipe item" options={TYPES} value={item.type} onChange={(type) => onChange({ type })} compactInactive />
+        {item.type === "data" && <UnitSelect value={item.unit} onChange={(unit) => onChange({ unit })} />}
+        <label className="ml-auto flex cursor-pointer items-center gap-2 text-[12px] text-muted-foreground">
+          Wajib <Switch checked={item.required} onCheckedChange={(c) => onChange({ required: c })} />
+        </label>
+      </div>
+    </Reorder.Item>
+  );
+}
+
+const TECH_PAGE = 6;
+
+/** Pilih teknisi: cari nama, urutkan dari beban paling ringan, halaman per 6, yang terpilih selalu terlihat di atas. */
+function TechnicianPicker({ techs, selected, onToggle }: { techs: Props["technicians"]; selected: string[]; onToggle: (id: string) => void }) {
+  const [q, setQ] = useState("");
+  const [lightFirst, setLightFirst] = useState(false);
+  const [page, setPage] = useState(0);
+  const term = q.trim().toLowerCase();
+  const list = techs.filter((t) => !term || t.name.toLowerCase().includes(term));
+  const sorted = lightFirst ? [...list].sort((a, b) => a.load - b.load || a.name.localeCompare(b.name)) : list;
+  const pages = Math.max(1, Math.ceil(sorted.length / TECH_PAGE));
+  const current = Math.min(page, pages - 1);
+  const shown = sorted.slice(current * TECH_PAGE, current * TECH_PAGE + TECH_PAGE);
+  const chosen = techs.filter((t) => selected.includes(t.id));
+
+  if (!techs.length) return <p className="rounded-xl border border-dashed px-4 py-5 text-center text-[13px] text-muted-foreground">Belum ada teknisi di crew ini.</p>;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <SearchInput
+          value={q}
+          onChange={(v) => {
+            setQ(v);
+            setPage(0);
+          }}
+          placeholder="Cari nama teknisi"
+          data-autofocus
+          className="min-w-[200px]"
+        />
+        <button
+          type="button"
+          aria-pressed={lightFirst}
+          onClick={() => {
+            setLightFirst((v) => !v);
+            setPage(0);
+          }}
+          className="chip h-11 shrink-0 gap-1.5"
+        >
+          <ArrowDownWideNarrow className="size-4 opacity-70" />
+          Paling longgar dulu
+        </button>
+      </div>
+
+      {chosen.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="mr-0.5 text-[12px] text-muted-foreground">Dipilih</span>
+          {chosen.map((t) => (
+            <span key={t.id} className="flex h-8 items-center gap-1.5 rounded-full border bg-card pl-1 pr-1 text-[12.5px] font-medium">
+              <Avatar id={t.id} name={t.name} size="sm" />
+              {t.name.split(" ")[0]}
+              <button type="button" aria-label={`Lepas ${t.name}`} onClick={() => onToggle(t.id)} className="flex size-6 items-center justify-center rounded-full text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground">
+                <X className="size-3.5" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
+      {shown.length ? (
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,240px),1fr))] gap-2">
+          {shown.map((t) => {
+            const on = selected.includes(t.id);
+            const busy = t.load >= 4 ? "Padat" : t.load >= 2 ? "Sedang" : "Longgar";
+            return (
+              <button key={t.id} type="button" onClick={() => onToggle(t.id)} aria-pressed={on} className="card-interactive flex items-center gap-3 rounded-xl p-3 text-left">
+                <Avatar id={t.id} name={t.name} />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[14px] font-medium">{t.name}</span>
+                  <span className="mt-1 flex items-center gap-2">
+                    <span className="flex gap-0.5" aria-hidden>
+                      {[0, 1, 2, 3, 4].map((i) => (
+                        <span key={i} className={cn("h-1.5 w-2.5 rounded-full", i < Math.min(t.load, 5) ? (t.load >= 4 ? "bg-amber-500" : "bg-foreground/40") : "bg-foreground/10")} />
+                      ))}
+                    </span>
+                    <span className="tabular whitespace-nowrap text-[12px] text-muted-foreground">
+                      {t.load} aktif · {busy}
+                    </span>
+                  </span>
+                </span>
+                <span className={cn("flex size-[22px] shrink-0 items-center justify-center rounded-full border transition-[background-color,border-color,transform] duration-200 ease-[var(--ease-out)]", on ? "scale-100 border-primary bg-primary text-primary-foreground" : "scale-95 border-foreground/20")}>
+                  {on && <Check className="size-3.5" strokeWidth={3} />}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="rounded-xl border border-dashed px-4 py-5 text-center text-[13px] text-muted-foreground">Tidak ada teknisi bernama “{q.trim()}”.</p>
+      )}
+
+      {sorted.length > TECH_PAGE && (
+        <div className="flex items-center justify-between gap-3">
+          <p className="tabular text-[12.5px] text-muted-foreground">
+            {current * TECH_PAGE + 1}–{Math.min(sorted.length, (current + 1) * TECH_PAGE)} dari {sorted.length} teknisi
+          </p>
+          <div className="flex items-center gap-1">
+            <IconButton icon={ChevronLeft} label="Halaman sebelumnya" variant="subtle" disabled={current === 0} onClick={() => setPage(current - 1)} />
+            <span className="tabular min-w-12 text-center text-[12.5px] font-medium">
+              {current + 1} / {pages}
+            </span>
+            <IconButton icon={ChevronRight} label="Halaman berikutnya" variant="subtle" disabled={current >= pages - 1} onClick={() => setPage(current + 1)} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

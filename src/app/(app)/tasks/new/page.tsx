@@ -31,7 +31,7 @@ export default async function NewTaskPage() {
       <PageHeader title="Buat task" subtitle="Checklist terisi otomatis dari template kategori & produk." />
       <NewTaskForm
         categories={categories.map((c) => ({ id: c.id, name: c.name, code: c.code, groupId: c.groupId!, groupName: md.groups.find((g) => g.id === c.groupId)?.name ?? "" }))}
-        products={md.products.map((p) => ({ id: p.id, name: p.name, code: p.code }))}
+        products={md.products.map((p) => ({ id: p.id, name: p.name, code: p.code, icon: p.icon }))}
         priorities={md.priorities.map((p) => ({ id: p.id, name: p.name, level: p.level, slaHours: p.slaHours }))}
         sites={md.sites.map((x) => ({ id: x.id, name: x.name, address: x.address, customerId: x.customerId }))}
         customers={md.customers.map((c) => ({ id: c.id, name: c.name, customerNo: c.customerNo }))}

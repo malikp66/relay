@@ -8,8 +8,8 @@ import { BottomSheet } from "@/components/relay/bottom-sheet";
 import { IconButton } from "@/components/relay/icon-button";
 import { notify } from "@/components/relay/alert";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Field, TextInput } from "@/components/relay/form";
+import { check, groupSchema, type FieldErrors } from "@/lib/validation";
 import { cn } from "@/lib/utils";
 
 type Member = { id: string; name: string; role: string; isActive: boolean; memberRole: "supervisor" | "technician" };
@@ -19,6 +19,21 @@ export function OrgTree({ rootName, groups, categories, unassigned }: { rootName
   const [edit, setEdit] = useState<Partial<G> | null>(null);
   const [move, setMove] = useState<Member | null>(null);
   const [pending, start] = useTransition();
+  const [errors, setErrors] = useState<FieldErrors>({});
+  const [attempted, setAttempted] = useState(false);
+  const openEdit = (g: Partial<G> | null) => {
+    setEdit(g);
+    setErrors({});
+    setAttempted(false);
+  };
+  const change = (patch: Partial<G>) => {
+    const next = { ...edit, ...patch };
+    setEdit(next);
+    if (attempted) {
+      const c = check(groupSchema, { ...next, name: next.name ?? "", code: next.code ?? "", categoryIds: next.categoryIds ?? [] });
+      setErrors(c.ok ? {} : c.errors);
+    }
+  };
   const catName = (id: string) => categories.find((c) => c.id === id)?.name;
 
   return (
@@ -27,7 +42,7 @@ export function OrgTree({ rootName, groups, categories, unassigned }: { rootName
         <div className="flex items-center gap-2 text-sm font-semibold">
           <Building2 className="size-4 text-primary" /> {rootName}
         </div>
-        <Button data-tour="groups-add" size="sm" variant="outline" className="h-8 rounded-lg bg-card shadow-[var(--shadow-card)]" onClick={() => setEdit({ categoryIds: [] })}>
+        <Button data-tour="groups-add" size="sm" variant="outline" className="h-8 rounded-lg bg-card shadow-[var(--shadow-card)]" onClick={() => openEdit({ categoryIds: [] })}>
           <Plus className="size-4" /> Crew
         </Button>
       </div>
@@ -51,7 +66,7 @@ export function OrgTree({ rootName, groups, categories, unassigned }: { rootName
                     ))}
                   </div>
                 </div>
-                <IconButton icon={Pencil} label="Ubah crew" onClick={() => setEdit(g)} className="-mr-1 -mt-1" />
+                <IconButton icon={Pencil} label="Ubah crew" onClick={() => openEdit(g)} className="-mr-1 -mt-1" />
               </div>
               <MemberList title={`Supervisor · ${spv.length}`} members={spv} onMove={setMove} />
               <MemberList title={`Teknisi · ${tech.length}`} members={tech} onMove={setMove} />
@@ -96,48 +111,54 @@ export function OrgTree({ rootName, groups, categories, unassigned }: { rootName
         </div>
       </BottomSheet>
 
-      <BottomSheet open={!!edit} onOpenChange={(o) => !o && setEdit(null)} title={edit?.id ? "Ubah crew" : "Crew baru"}>
+      <BottomSheet open={!!edit} onOpenChange={(o) => !o && openEdit(null)} title={edit?.id ? "Ubah crew" : "Crew baru"}>
         {edit && (
           <form
-            className="space-y-3 pb-2"
+            noValidate
+            className="space-y-4 pb-2"
             onSubmit={(e) => {
               e.preventDefault();
+              setAttempted(true);
+              const payload = { id: edit.id, name: edit.name ?? "", code: edit.code ?? "", description: edit.description ?? "", categoryIds: edit.categoryIds ?? [] };
+              const c = check(groupSchema, payload);
+              if (!c.ok) return setErrors(c.errors);
               start(async () => {
-                const r = await saveGroupAction({ id: edit.id, name: edit.name ?? "", code: edit.code ?? "", description: edit.description, categoryIds: edit.categoryIds ?? [] });
+                const r = await saveGroupAction(payload);
                 if (r.ok) {
                   notify.success("Crew tersimpan");
                   setEdit(null);
-                } else notify.error(r.error);
+                } else {
+                  if (r.fieldErrors) setErrors(r.fieldErrors);
+                  notify.error(r.error);
+                }
               });
             }}
           >
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Nama</Label>
-                <Input value={edit.name ?? ""} onChange={(e) => setEdit({ ...edit, name: e.target.value })} className="h-11 rounded-xl" />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Kode</Label>
-                <Input value={edit.code ?? ""} onChange={(e) => setEdit({ ...edit, code: e.target.value })} className="h-11 rounded-xl" placeholder="CREW-C" />
-              </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field label="Nama crew" error={errors.name}>
+                {(id, d) => <TextInput id={id} aria-describedby={d} invalid={!!errors.name} value={edit.name ?? ""} onChange={(e) => change({ name: e.target.value })} placeholder="mis. Crew C" />}
+              </Field>
+              <Field label="Kode" error={errors.code} hint="Huruf besar, mis. CREW-C">
+                {(id, d) => <TextInput id={id} aria-describedby={d} invalid={!!errors.code} value={edit.code ?? ""} onChange={(e) => change({ code: e.target.value.toUpperCase() })} placeholder="CREW-C" autoCapitalize="characters" />}
+              </Field>
             </div>
-            <div className="space-y-1.5">
-              <Label>Deskripsi</Label>
-              <Input value={edit.description ?? ""} onChange={(e) => setEdit({ ...edit, description: e.target.value })} className="h-11 rounded-xl" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Menangani kategori</Label>
-              <div className="flex flex-wrap gap-2">
-                {categories.map((c) => {
-                  const on = edit.categoryIds?.includes(c.id);
-                  return (
-                    <button key={c.id} type="button" onClick={() => setEdit({ ...edit, categoryIds: on ? edit.categoryIds!.filter((x) => x !== c.id) : [...(edit.categoryIds ?? []), c.id] })} aria-pressed={!!on} className="chip h-10">
-                      {c.name}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+            <Field label="Deskripsi" optional error={errors.description}>
+              {(id, d) => <TextInput id={id} aria-describedby={d} invalid={!!errors.description} value={edit.description ?? ""} onChange={(e) => change({ description: e.target.value })} placeholder="mis. Tim maintenance wilayah timur" />}
+            </Field>
+            <Field label="Menangani kategori" hint="Task dari kategori ini otomatis masuk ke crew ini. Bisa lebih dari satu.">
+              {() => (
+                <div className="flex flex-wrap gap-2">
+                  {categories.map((c) => {
+                    const on = edit.categoryIds?.includes(c.id);
+                    return (
+                      <button key={c.id} type="button" onClick={() => change({ categoryIds: on ? edit.categoryIds!.filter((x) => x !== c.id) : [...(edit.categoryIds ?? []), c.id] })} aria-pressed={!!on} className="chip h-11">
+                        {c.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </Field>
             <Button type="submit" disabled={pending} className="h-12 w-full rounded-xl">
               Simpan
             </Button>

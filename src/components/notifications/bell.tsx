@@ -152,7 +152,7 @@ export function NotificationBell() {
             groups.map((g) => (
               <div key={g.label}>
                 <p className="px-2.5 pb-1 pt-2.5 text-[11.5px] font-medium text-muted-foreground">{g.label}</p>
-                <ul>
+                <ul className="space-y-1.5">
                   {g.list.map((n) => (
                     <li key={n.id}>
                       <NotificationRow n={n} onOpen={() => openItem(n)} />
@@ -184,7 +184,7 @@ export function NotificationRow({ n, onOpen }: { n: Notif; onOpen?: () => void }
   const meta = KIND_META[n.kind] ?? KIND_META.test;
   const unread = !n.readAt;
   return (
-    <button type="button" onClick={onOpen} className={cn("group flex w-full items-start gap-3 rounded-xl px-2.5 py-2.5 text-left transition-colors duration-150 hover:bg-foreground/[0.04]", unread && "bg-primary/[0.035]")}>
+    <button type="button" onClick={onOpen} className={cn("group flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition-colors duration-150 hover:bg-foreground/[0.04]", unread && "bg-primary/[0.035]")}>
       <IconTile icon={meta.icon} color={meta.color} size="sm" className="mt-0.5" />
       <span className="min-w-0 flex-1">
         <span className="flex items-baseline gap-2">

@@ -1,5 +1,7 @@
 import { masterData } from "@/server/queries";
+import { productIconLabel } from "@/lib/product-icons";
 import { MasterCrud } from "@/components/relay/master-crud";
+import { humanizeHours } from "@/lib/format";
 
 export const metadata = { title: "Referensi" };
 
@@ -12,21 +14,26 @@ export default async function MasterPage() {
         title="Kategori"
         rows={md.categories.map((r) => ({ ...r, _primary: `${r.name} (${r.code})`, _secondary: `${r.isScheduled ? "Terjadwal" : "Reaktif"} · ${r.description ?? ""}` }))}
         fields={[
-          { key: "name", label: "Nama", half: true },
-          { key: "code", label: "Kode", half: true, placeholder: "TS" },
-          { key: "isScheduled", label: "Pekerjaan terjadwal (maintenance)", type: "checkbox" },
-          { key: "description", label: "Deskripsi", type: "textarea" },
+          { key: "name", label: "Nama", half: true, placeholder: "mis. Troubleshoot" },
+          { key: "code", label: "Kode", half: true, upper: true, placeholder: "mis. TS", hint: "Dipakai di nomor task, mis. TS-2610-0001." },
+          { key: "isScheduled", label: "Pekerjaan terjadwal", type: "checkbox", hint: "Nyalakan untuk maintenance rutin; matikan untuk pekerjaan dari komplain." },
+          { key: "description", label: "Deskripsi", type: "textarea", optional: true, placeholder: "Penjelasan singkat untuk supervisor" },
         ]}
       />
-      <MasterCrud kind="products" title="Produk" rows={md.products.map((r) => ({ ...r, _primary: r.name, _secondary: `Kode ${r.code}` }))} fields={[{ key: "name", label: "Nama", half: true }, { key: "code", label: "Kode", half: true }]} />
+      <MasterCrud kind="products" title="Produk" rows={md.products.map((r) => ({ ...r, icon: r.icon ?? "box", _primary: r.name, _secondary: `Kode ${r.code} · Ikon ${productIconLabel(r.icon).toLowerCase()}`, _icon: r.icon ?? "box" }))} fields={[
+          { key: "name", label: "Nama", half: true, placeholder: "mis. Fiber Optic" },
+          { key: "code", label: "Kode", half: true, upper: true, placeholder: "mis. FO" },
+          { key: "icon", label: "Ikon", type: "icon", hint: "Tampil di chip produk saat membuat task dan di template." },
+        ]}
+      />
       <MasterCrud
         kind="priorities"
         title="Prioritas & SLA"
-        rows={md.priorities.map((r) => ({ ...r, _primary: r.name, _secondary: `Level ${r.level} · SLA ${r.slaHours >= 24 ? `${r.slaHours / 24} hari` : `${r.slaHours} jam`}` }))}
+        rows={md.priorities.map((r) => ({ ...r, _primary: r.name, _secondary: `Level ${r.level} · SLA ${humanizeHours(r.slaHours)}` }))}
         fields={[
-          { key: "name", label: "Nama" },
-          { key: "level", label: "Level (1 sampai 4)", type: "number", half: true },
-          { key: "slaHours", label: "SLA (jam)", type: "number", half: true },
+          { key: "name", label: "Nama", half: true, placeholder: "mis. High" },
+          { key: "level", label: "Level", type: "number", half: true, placeholder: "1 sampai 9", hint: "Urutan prioritas: 1 paling rendah, angka lebih besar lebih mendesak." },
+          { key: "slaHours", label: "Batas waktu (SLA)", type: "duration", hint: "Lama waktu dari jadwal mulai sampai deadline task. Dihitung otomatis saat membuat task." },
         ]}
       />
     </div>

@@ -33,3 +33,6 @@ export function slaState(dueAt: Date | string, status: string) {
   if (diff < 4 * 3600_000) return { label: `Sisa ${fmtDuration(diff)}`, level: "soon" as const };
   return { label: `Sisa ${fmtDuration(diff)}`, level: "ok" as const };
 }
+
+/** Jam → teks yang mudah dibaca: 4 → "4 jam", 72 → "3 hari", 30 → "1 hari 6 jam". */
+export const humanizeHours = (h: number) => (h >= 24 && h % 24 === 0 ? `${h / 24} hari` : h > 24 ? `${Math.floor(h / 24)} hari ${h % 24} jam` : `${h} jam`);

@@ -16,15 +16,27 @@ const g = globalThis as unknown as { __relayDb?: Promise<DB> };
 const MIGRATIONS = path.join(process.cwd(), "drizzle");
 const LOCK_ID = 727_001; // advisory lock: cegah migrasi/seed jalan bersamaan di beberapa instance
 
+/**
+ * `sslmode` di URL (mis. Neon: `sslmode=require`) memicu peringatan pg karena maknanya akan berubah di pg v9.
+ * Kita baca sendiri lalu beri `ssl` eksplisit: sertifikat diverifikasi (sama dengan perilaku pg saat ini),
+ * kecuali host lokal atau `sslmode=disable`.
+ */
+function pgConnection(url: string) {
+  const u = new URL(url);
+  const mode = u.searchParams.get("sslmode");
+  u.searchParams.delete("sslmode");
+  const plain = mode === "disable" || ["localhost", "127.0.0.1", "::1"].includes(u.hostname);
+  return { connectionString: u.toString(), ssl: plain ? undefined : { rejectUnauthorized: true } };
+}
+
 async function initPostgres(url: string): Promise<DB> {
   const { Pool } = await import("pg");
   const { drizzle } = await import("drizzle-orm/node-postgres");
   const { migrate } = await import("drizzle-orm/node-postgres/migrator");
   const pool = new Pool({
-    connectionString: url,
+    ...pgConnection(url),
     max: Number(process.env.PG_POOL_MAX ?? 3),
     idleTimeoutMillis: 10_000,
-    ssl: /sslmode=disable|localhost|127\.0\.0\.1/.test(url) ? undefined : { rejectUnauthorized: false },
   });
   const db = drizzle(pool, { schema });
   // Migrasi & seed memakai SATU koneksi yang sama dengan pemegang lock (aman walau pool kecil).

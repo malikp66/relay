@@ -61,7 +61,8 @@ export async function missingRequiredItems(db: DB, taskId: string) {
 export async function missingReportFields(db: DB, taskId: string, categoryId: string) {
   const [tpl] = await db.select().from(s.reportTemplates).where(eq(s.reportTemplates.categoryId, categoryId)).limit(1);
   const [report] = await db.select().from(s.reports).where(eq(s.reports.taskId, taskId));
-  const fields: ReportField[] = tpl?.fields ?? [];
+  // laporan memakai salinan field saat dibuat (versi template), bukan template terbaru
+  const fields: ReportField[] = report?.templateFields ?? tpl?.fields ?? [];
   const values = report?.fields ?? {};
   const missing = fields.filter((f) => f.required && (values[f.key] === undefined || values[f.key] === null || String(values[f.key]).trim() === "")).map((f) => f.label);
   if (!report?.findings?.trim()) missing.push("Temuan / catatan akhir");
@@ -105,7 +106,7 @@ export async function transition(user: CurrentUser, taskId: string, action: Tran
       const [existing] = await db.select({ id: s.reports.id }).from(s.reports).where(eq(s.reports.taskId, taskId));
       if (!existing) {
         const [tpl] = await db.select().from(s.reportTemplates).where(eq(s.reportTemplates.categoryId, task.categoryId)).limit(1);
-        await db.insert(s.reports).values({ taskId, templateId: tpl?.id, fields: {}, lastEditedBy: user.id });
+        await db.insert(s.reports).values({ taskId, templateId: tpl?.id, templateFields: tpl?.fields, templateVersion: tpl?.version, fields: {}, lastEditedBy: user.id });
       }
       // check-out otomatis untuk semua attendance terbuka di task ini
       await db.update(s.attendances).set({ checkOutAt: now }).where(and(eq(s.attendances.taskId, taskId), isNull(s.attendances.checkOutAt)));

@@ -267,3 +267,99 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Ganti tema (components/shell/theme.tsx#switchTheme): hanya aktif selama data-theme-vt="active",
+   jadi tidak memengaruhi view transition lain. Snapshot baru dibuka dengan clip-path lingkaran dari tombol. */
+html[data-theme-vt="active"]::view-transition-old(root),
+html[data-theme-vt="active"]::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+html[data-theme-vt="active"]::view-transition-new(root) {
+  clip-path: var(--theme-vt-from);
+}
+html[data-theme-vt="active"]::view-transition-group(root) {
+  animation-duration: var(--theme-vt-ms);
+}
+
+/* Scrollbar: tipis, warna dari token tema (ikut terang/gelap), jalur transparan.
+   Firefox & Chrome ≥121 memakai scrollbar-color; Safari memakai ::-webkit-scrollbar.
+   Elemen yang memang menyembunyikan scrollbar ([scrollbar-width:none]) tetap menang karena utility di atas layer base. */
+@layer base {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklab, var(--foreground) 22%, transparent) transparent;
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background-clip: padding-box;
+    background-color: color-mix(in oklab, var(--foreground) 22%, transparent);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: color-mix(in oklab, var(--foreground) 38%, transparent);
+  }
+  /* di latar gelap, abu yang sama terlihat lebih samar: naikkan sedikit */
+  .dark * {
+    scrollbar-color: color-mix(in oklab, var(--foreground) 30%, transparent) transparent;
+  }
+  .dark ::-webkit-scrollbar-thumb {
+    background-color: color-mix(in oklab, var(--foreground) 30%, transparent);
+  }
+}
+
+/* Peta lokasi (components/relay/location-picker.tsx): pin & lingkaran radius pakai warna tema. */
+.relay-pin {
+  display: block;
+  width: 30px;
+  height: 30px;
+  border-radius: 50% 50% 50% 0;
+  background: var(--primary);
+  transform: rotate(-45deg);
+  box-shadow: 0 3px 8px rgb(0 0 0 / 0.3);
+  border: 2px solid white;
+}
+.relay-pin::after {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  border-radius: 50%;
+  background: white;
+}
+.leaflet-interactive.relay-radius {
+  stroke: var(--primary);
+  fill: var(--primary);
+}
+.leaflet-container {
+  font-family: inherit;
+  background: var(--muted);
+}
+.dark .relay-map .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9) saturate(0.6);
+}
+.relay-map .leaflet-bar {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+}
+.relay-map .leaflet-bar a {
+  background: var(--card);
+  color: var(--foreground);
+  border-bottom-color: var(--border);
+}
+.relay-map .leaflet-control-attribution {
+  background: color-mix(in oklab, var(--card) 85%, transparent);
+  color: var(--muted-foreground);
+}
+.relay-map .leaflet-control-attribution a {
+  color: var(--primary);
+}

@@ -44,11 +44,11 @@ const CREW_A_TECH = ["andi", "dedi", "eko", "fajar"];
 const CREW_B_TECH = ["gilang", "hendra", "indra", "joko"];
 
 const PRODUCTS = [
-  { key: "FO", name: "Fiber Optic" },
-  { key: "RD", name: "Radio" },
-  { key: "IP", name: "IPTV" },
-  { key: "DT", name: "Digital TV" },
-  { key: "OT", name: "Other" },
+  { key: "FO", name: "Fiber Optic", icon: "fiber" },
+  { key: "RD", name: "Radio", icon: "radio" },
+  { key: "IP", name: "IPTV", icon: "tv" },
+  { key: "DT", name: "Digital TV", icon: "broadcast" },
+  { key: "OT", name: "Other", icon: "box" },
 ] as const;
 
 const PRIORITIES = [
@@ -263,7 +263,7 @@ async function seedDemo(db: DB) {
       { name: "Maintenance", code: "MT", isScheduled: true, description: "Pekerjaan terjadwal pada infrastruktur" },
     ])
     .returning();
-  const productRows = await db.insert(s.products).values(PRODUCTS.map((p) => ({ name: p.name, code: p.key }))).returning();
+  const productRows = await db.insert(s.products).values(PRODUCTS.map((p) => ({ name: p.name, code: p.key, icon: p.icon }))).returning();
   const P = Object.fromEntries(PRODUCTS.map((p, i) => [p.key, productRows[i]]));
   const prioRows = await db.insert(s.priorities).values(PRIORITIES.map((p) => ({ name: p.name, level: p.level, slaHours: p.slaHours }))).returning();
   const PR = Object.fromEntries(PRIORITIES.map((p, i) => [p.key, prioRows[i]]));
@@ -463,6 +463,8 @@ async function seedDemo(db: DB) {
       await db.insert(s.reports).values({
         taskId: task.id,
         templateId: isTS ? rtTS.id : rtMT.id,
+        templateFields: (isTS ? rtTS : rtMT).fields,
+        templateVersion: 1,
         fields: draftOnly ? Object.fromEntries(Object.entries(sample).slice(0, 2)) : sample,
         findings: draftOnly ? null : "Pekerjaan selesai sesuai checklist. Pelanggan/lokasi sudah dicek ulang.",
         submittedBy: submittedAt ? U[spec.assignees[0]].id : null,

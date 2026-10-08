@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { KeyRound, Pencil, Plus, Power, Search } from "lucide-react";
+import { KeyRound, Pencil, Plus, Power } from "lucide-react";
 import { resetPasswordAction, saveUserAction, toggleUserActiveAction } from "@/app/actions/admin";
 import { Avatar } from "@/components/relay/avatar-stack";
 import { BottomSheet } from "@/components/relay/bottom-sheet";
@@ -9,12 +9,19 @@ import { notify, useAlert } from "@/components/relay/alert";
 import { SmoothTabs } from "@/components/relay/smooth-tabs";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/relay/icon-button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Field, SelectBox, TextInput } from "@/components/relay/form";
+import { check, userSchema, type FieldErrors } from "@/lib/validation";
 import { ROLE_LABEL } from "@/lib/labels";
 import { fmtDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { SearchInput } from "@/components/relay/search-input";
 import type { Role } from "@/db/schema";
+
+const ROLE_HINT: Record<Role, string> = {
+  technician: "Mengerjakan task di lapangan: check-in, checklist, laporan.",
+  supervisor: "Membuat task dan mereview laporan crew-nya.",
+  admin: "Mengelola master data, user, dan semua crew.",
+};
 
 type U = { id: string; name: string; username: string; role: Role; title: string; phone: string; isActive: boolean; lastLoginAt: string | null; groupId: string };
 
@@ -24,6 +31,22 @@ export function UsersView({ users, groups }: { users: U[]; groups: { id: string;
   const [q, setQ] = useState("");
   const [edit, setEdit] = useState<Partial<U> | null>(null);
   const [pending, start] = useTransition();
+  const [errors, setErrors] = useState<FieldErrors>({});
+  const [attempted, setAttempted] = useState(false);
+  const openEdit = (u: Partial<U> | null) => {
+    setEdit(u);
+    setErrors({});
+    setAttempted(false);
+  };
+  // setelah percobaan simpan pertama, error diperbarui setiap kali isian berubah
+  const change = (patch: Partial<U>) => {
+    const next = { ...edit, ...patch };
+    setEdit(next);
+    if (attempted) {
+      const c = check(userSchema, { ...next, name: next.name ?? "", username: next.username ?? "", groupId: next.groupId || undefined });
+      setErrors(c.ok ? {} : c.errors);
+    }
+  };
   const list = users.filter((u) => (filter === "all" || u.role === filter) && (!q || `${u.name} ${u.username}`.toLowerCase().includes(q.toLowerCase())));
   const groupName = (id: string) => groups.find((g) => g.id === id)?.name;
 
@@ -49,11 +72,8 @@ export function UsersView({ users, groups }: { users: U[]; groups: { id: string;
       />
       </div>
       <div className="flex gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari nama / username" className="h-11 rounded-xl pl-10" />
-        </div>
-        <Button data-tour="users-add" className="h-11 rounded-xl" onClick={() => setEdit({ role: "technician", groupId: groups[0]?.id ?? "" })}>
+        <SearchInput value={q} onChange={setQ} placeholder="Cari nama atau username" />
+        <Button data-tour="users-add" className="h-11 rounded-xl" onClick={() => openEdit({ role: "technician", groupId: groups[0]?.id ?? "" })}>
           <Plus className="size-4" /> User
         </Button>
       </div>
@@ -70,67 +90,64 @@ export function UsersView({ users, groups }: { users: U[]; groups: { id: string;
                 {u.groupId ? ` · ${groupName(u.groupId)}` : ""} · login {u.lastLoginAt ? fmtDateTime(u.lastLoginAt) : "belum pernah"}
               </p>
             </div>
-            <IconButton icon={Pencil} label="Ubah user" onClick={() => setEdit(u)} />
+            <IconButton icon={Pencil} label="Ubah user" onClick={() => openEdit(u)} />
           </li>
         ))}
       </ul>
 
-      <BottomSheet open={!!edit} onOpenChange={(o) => !o && setEdit(null)} title={edit?.id ? "Ubah user" : "Tambah user"} description={edit?.id ? undefined : "Password awal: relay123 (demo)."}>
+      <BottomSheet open={!!edit} onOpenChange={(o) => !o && openEdit(null)} title={edit?.id ? "Ubah user" : "Tambah user"} description={edit?.id ? undefined : "Password awal: relay123 (demo)."}>
         {edit && (
           <form
-            className="space-y-3 pb-2"
+            noValidate
+            className="space-y-4 pb-2"
             onSubmit={(e) => {
               e.preventDefault();
+              setAttempted(true);
+              const payload = { id: edit.id, name: edit.name ?? "", username: edit.username ?? "", role: edit.role ?? "technician", title: edit.title ?? "", phone: edit.phone ?? "", groupId: edit.groupId || undefined };
+              const c = check(userSchema, payload);
+              if (!c.ok) return setErrors(c.errors);
               start(async () => {
-                const r = await saveUserAction({ id: edit.id, name: edit.name ?? "", username: edit.username ?? "", role: edit.role ?? "technician", title: edit.title, phone: edit.phone, groupId: edit.groupId || undefined });
+                const r = await saveUserAction(payload);
                 if (r.ok) {
                   notify.success("User tersimpan");
                   setEdit(null);
-                } else notify.error(r.error);
+                } else {
+                  if (r.fieldErrors) setErrors(r.fieldErrors);
+                  notify.error(r.error);
+                }
               });
             }}
           >
-            <div className="space-y-1.5">
-              <Label>Nama</Label>
-              <Input value={edit.name ?? ""} onChange={(e) => setEdit({ ...edit, name: e.target.value })} className="h-11 rounded-xl" />
+            <Field label="Nama lengkap" error={errors.name}>
+              {(id, d) => <TextInput id={id} aria-describedby={d} invalid={!!errors.name} value={edit.name ?? ""} onChange={(e) => change({ name: e.target.value })} placeholder="mis. Andi Pratama" />}
+            </Field>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field label="Username" error={errors.username} hint="Untuk login. Huruf kecil, mis. tek.andi">
+                {(id, d) => <TextInput id={id} aria-describedby={d} invalid={!!errors.username} value={edit.username ?? ""} onChange={(e) => change({ username: e.target.value })} autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder="tek.nama" />}
+              </Field>
+              <Field label="No. HP" optional error={errors.phone}>
+                {(id, d) => <TextInput id={id} aria-describedby={d} invalid={!!errors.phone} inputMode="tel" value={edit.phone ?? ""} onChange={(e) => change({ phone: e.target.value })} placeholder="08xx-xxxx-xxxx" />}
+              </Field>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Username</Label>
-                <Input value={edit.username ?? ""} onChange={(e) => setEdit({ ...edit, username: e.target.value })} className="h-11 rounded-xl" autoCapitalize="none" />
-              </div>
-              <div className="space-y-1.5">
-                <Label>No. HP</Label>
-                <Input value={edit.phone ?? ""} onChange={(e) => setEdit({ ...edit, phone: e.target.value })} className="h-11 rounded-xl" />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Role</Label>
-              <div className="flex gap-2">
-                {(["technician", "supervisor", "admin"] as const).map((r) => (
-                  <button key={r} type="button" onClick={() => setEdit({ ...edit, role: r })} aria-pressed={edit.role === r} className="chip h-10 flex-1 rounded-xl">
-                    {ROLE_LABEL[r]}
-                  </button>
-                ))}
-              </div>
-            </div>
-            {edit.role !== "admin" && (
-              <div className="space-y-1.5">
-                <Label>Crew</Label>
-                <select value={edit.groupId ?? ""} onChange={(e) => setEdit({ ...edit, groupId: e.target.value })} className="h-11 w-full rounded-xl border bg-background px-3 text-sm">
-                  <option value="">Tanpa crew</option>
-                  {groups.map((g) => (
-                    <option key={g.id} value={g.id}>
-                      {g.name}
-                    </option>
+            <Field label="Role" error={errors.role} hint={ROLE_HINT[edit.role ?? "technician"]}>
+              {() => (
+                <div role="radiogroup" aria-label="Role" className="grid grid-cols-3 gap-2">
+                  {(["technician", "supervisor", "admin"] as const).map((r) => (
+                    <button key={r} type="button" role="radio" aria-checked={edit.role === r} data-selected={edit.role === r} onClick={() => change({ role: r })} className="chip h-11 rounded-xl px-2">
+                      {ROLE_LABEL[r]}
+                    </button>
                   ))}
-                </select>
-              </div>
+                </div>
+              )}
+            </Field>
+            {edit.role !== "admin" && (
+              <Field label="Crew" error={errors.groupId}>
+                {(id, d) => <SelectBox id={id} describedBy={d} invalid={!!errors.groupId} value={edit.groupId ?? ""} onChange={(v) => change({ groupId: v })} options={groups} placeholder="Pilih crew" />}
+              </Field>
             )}
-            <div className="space-y-1.5">
-              <Label>Jabatan</Label>
-              <Input value={edit.title ?? ""} onChange={(e) => setEdit({ ...edit, title: e.target.value })} className="h-11 rounded-xl" placeholder="mis. Teknisi Crew A" />
-            </div>
+            <Field label="Jabatan" optional error={errors.title}>
+              {(id, d) => <TextInput id={id} aria-describedby={d} invalid={!!errors.title} value={edit.title ?? ""} onChange={(e) => change({ title: e.target.value })} placeholder="mis. Teknisi Crew A" />}
+            </Field>
             <Button type="submit" disabled={pending} className="h-12 w-full rounded-xl">
               Simpan
             </Button>
