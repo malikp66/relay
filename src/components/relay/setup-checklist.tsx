@@ -7,13 +7,15 @@
  */
 import Link from "next/link";
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { ArrowRight, Check, ChevronDown, Compass, MapPin, Smartphone } from "lucide-react";
+import { ArrowRight, Bell, Check, ChevronDown, Compass, MapPin, Smartphone } from "lucide-react";
 import type { Role } from "@/db/schema";
 import type { SetupItem } from "@/server/setup";
 import { CloseButton } from "./icon-button";
 import { ProgressRing } from "./progress-ring";
 import { useTour, tourDone } from "@/components/tour/tour-provider";
 import { cn } from "@/lib/utils";
+import { notify } from "./notify";
+import { enablePush, getServerState as pushServerState, getState as pushState, subscribe as subscribePush } from "@/components/notifications/store";
 
 const listeners = new Set<() => void>();
 const emit = () => listeners.forEach((l) => l());
@@ -64,11 +66,42 @@ export function SetupChecklist({ userId, role, items }: { userId: string; role: 
   const toured = useSyncExternalStore(subscribe, () => tourDone(userId), () => true);
   const [open, setOpen] = useState(true);
   const device = useDevice();
+  const push = useSyncExternalStore(subscribePush, pushState, pushServerState).push;
+
+  /* Izin notifikasi: diminta dari langkah ini supaya user tahu alasannya (bukan dialog browser tiba-tiba).
+     Browser/server yang memang tidak mendukung push → langkah tidak ditampilkan. */
+  const notifItem: (SetupItem & { action?: () => void; icon?: typeof MapPin }) | null =
+    push === "unsupported" || push === "unconfigured"
+      ? null
+      : {
+          id: "notif",
+          title: "Izinkan notifikasi",
+          description:
+            push === "denied"
+              ? "Diblokir browser. Ketuk ikon gembok di address bar, izinkan Notifikasi, lalu muat ulang."
+              : push === "ios-install"
+                ? "Di iPhone, pasang Relay ke layar utama dulu, lalu buka dari sana."
+                : role === "technician"
+                  ? "Supaya task baru & permintaan revisi langsung masuk ke HP."
+                  : "Supaya laporan masuk & task overdue langsung terlihat.",
+          href: "/account#notifikasi",
+          done: push === "on",
+          icon: Bell,
+          action:
+            push === "off"
+              ? async () => {
+                  const r = await enablePush();
+                  if (r.ok) notify.success("Notifikasi aktif di perangkat ini");
+                  else notify.error(r.error ?? "Gagal mengaktifkan notifikasi");
+                }
+              : undefined,
+        };
 
   const all: (SetupItem & { action?: () => void; icon?: typeof MapPin })[] =
     role === "technician"
       ? [
           { id: "install", title: "Pasang Relay di HP", description: "Buka dari layar utama seperti aplikasi biasa.", href: "/account", done: device.standalone, icon: Smartphone },
+          ...(notifItem ? [notifItem] : []),
           {
             id: "location",
             title: "Izinkan akses lokasi",
@@ -80,7 +113,7 @@ export function SetupChecklist({ userId, role, items }: { userId: string; role: 
           },
           { id: "tour", title: "Ikuti tur singkat", description: "1 menit mengenal cara kerja Relay.", href: "#", done: toured, icon: Compass, action: start },
         ]
-      : [...items, { id: "tour", title: "Ikuti tur singkat", description: "Kenali menu utama dalam 1 menit.", href: "#", done: toured, icon: Compass, action: start }];
+      : [...items, ...(notifItem ? [notifItem] : []), { id: "tour", title: "Ikuti tur singkat", description: "Kenali menu utama dalam 1 menit.", href: "#", done: toured, icon: Compass, action: start }];
 
   const done = all.filter((i) => i.done).length;
   const complete = done === all.length;

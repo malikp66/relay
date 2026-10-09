@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { notify } from "@/components/relay/notify";
 import { Button } from "@/components/ui/button";
+import { BrandMark } from "@/lib/brand-icon";
 
 type BIPEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> };
 
@@ -108,7 +109,7 @@ async function promptInstall() {
   emit();
 }
 
-function InstallHint({ state }: { state: InstallState }) {
+function InstallHint({ state, short }: { state: InstallState; short?: boolean }) {
   if (state === "ios")
     return (
       <>
@@ -121,7 +122,7 @@ function InstallHint({ state }: { state: InstallState }) {
         Ketuk <EllipsisVertical className="inline size-3.5 -translate-y-px" /> di browser, lalu pilih “Instal aplikasi” atau “Tambahkan ke layar utama”.
       </>
     );
-  return <>Buka lebih cepat, tampil penuh, dan notifikasi tugas langsung masuk ke HP.</>;
+  return short ? <>Lebih cepat dibuka &amp; dapat notifikasi.</> : <>Buka lebih cepat, tampil penuh, dan notifikasi tugas langsung masuk ke HP.</>;
 }
 
 /* Banner hanya di halaman PERTAMA yang dibuka per sesi tab (bukan di setiap halaman yang dikunjungi). */
@@ -144,27 +145,20 @@ export function InstallBanner() {
   // Halaman Akun sudah punya kartu install sendiri.
   if (state === "hidden" || isSnoozed || path !== firstPage || path === "/account") return null;
   return (
-    <div role="region" aria-label="Pasang aplikasi" className="install-banner mb-5 flex items-start gap-3 rounded-2xl border border-primary/20 bg-primary/[0.05] p-3 pr-2 dark:bg-primary/[0.09]">
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-        <Download className="size-[18px]" />
-      </span>
-      <div className="min-w-0 flex-1 pt-0.5">
+    <div role="region" aria-label="Pasang aplikasi" className="install-banner mb-5 flex items-center gap-3 rounded-2xl border bg-card py-2.5 pl-2.5 pr-1.5 shadow-[var(--shadow-card)]">
+      {/* ikon aplikasi yang akan muncul di layar utama, bukan ikon dekoratif */}
+      <BrandMark size={40} className="shrink-0 rounded-[10px]" />
+      <div className="min-w-0 flex-1">
         <p className="text-[13.5px] font-semibold leading-snug">Pasang Relay di HP</p>
-        <p className="mt-0.5 text-[12.5px] leading-snug text-muted-foreground">
-          <InstallHint state={state} />
+        <p className="text-[12.5px] leading-snug text-muted-foreground">
+          <InstallHint state={state} short />
         </p>
-        {/* Tanpa prompt asli (iOS / Android tertentu) cukup panduan + tombol tutup; tidak ada tombol yang tak berguna. */}
-        {state === "prompt" && (
-          <div className="mt-2.5 flex items-center gap-1">
-            <Button size="sm" className="h-8 rounded-lg px-3" onClick={promptInstall}>
-              Pasang sekarang
-            </Button>
-            <Button size="sm" variant="ghost" className="h-8 rounded-lg px-2.5 text-muted-foreground" onClick={snooze}>
-              Nanti saja
-            </Button>
-          </div>
-        )}
       </div>
+      {state === "prompt" && (
+        <Button size="sm" variant="outline" className="h-8 shrink-0 rounded-full px-3.5 text-[13px]" onClick={promptInstall}>
+          Pasang
+        </Button>
+      )}
       <CloseButton size="sm" onClick={snooze} label="Tutup, ingatkan 3 hari lagi" />
     </div>
   );

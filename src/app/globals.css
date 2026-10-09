@@ -277,6 +277,22 @@
   opacity: 0;
 }
 
+/* Spotlight tur: redup di luar target + garis aksen. Dark mode perlu redup lebih pekat & glow lebih kuat. */
+:root {
+  --tour-dim: rgb(9 9 11 / 0.58);
+  --tour-glow: color-mix(in oklch, var(--primary) 22%, transparent);
+}
+.dark {
+  --tour-dim: rgb(0 0 0 / 0.8);
+  --tour-glow: color-mix(in oklch, var(--primary) 38%, transparent);
+}
+.tour-spotlight {
+  box-shadow:
+    0 0 0 2px var(--primary),
+    0 0 0 7px var(--tour-glow),
+    0 0 0 9999px var(--tour-dim);
+}
+
 /* Banner install: turun pelan saat aplikasi dibuka (hanya transform/opacity) */
 .install-banner {
   animation: install-in 320ms var(--ease-out) 600ms both;

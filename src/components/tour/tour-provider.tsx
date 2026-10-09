@@ -13,6 +13,18 @@ import { PAGE_TOURS, TOURS, TOUR_VERSION, type TourStep } from "@/lib/tour";
 import { CloseButton } from "@/components/relay/icon-button";
 import { cn } from "@/lib/utils";
 
+/** Jarak celah spotlight dari tepi elemen target (px). */
+const SPOT_PAD = 6;
+/** Kotak spotlight = target + celah, dijepit di dalam layar (sisakan ruang untuk garis & glow 7px). */
+function spotBox(r: { top: number; left: number; width: number; height: number }, vw: number, vh: number) {
+  const m = 8;
+  const top = Math.max(m, r.top - SPOT_PAD);
+  const left = Math.max(m, r.left - SPOT_PAD);
+  const bottom = Math.min(vh - m, r.top + r.height + SPOT_PAD);
+  const right = Math.min(vw - m, r.left + r.width + SPOT_PAD);
+  return { top, left, width: Math.max(0, right - left), height: Math.max(0, bottom - top) };
+}
+
 type Ctx = { start: () => void; startPage: () => void; hasPageTour: boolean; active: boolean };
 const TourCtx = createContext<Ctx>({ start: () => {}, startPage: () => {}, hasPageTour: false, active: false });
 export const useTour = () => useContext(TourCtx);
@@ -187,8 +199,8 @@ function TourOverlay({ steps, index, onIndex, onClose }: { steps: TourStep[]; in
   const cardW = Math.min(340, vw - 32);
   let cardStyle: React.CSSProperties = { width: cardW, left: (vw - cardW) / 2, top: Math.max(16, (vh - cardH) / 2) };
   if (rect) {
-    const below = rect.top + rect.height + 12;
-    const above = rect.top - cardH - 12;
+    const below = rect.top + rect.height + SPOT_PAD + 12;
+    const above = rect.top - SPOT_PAD - cardH - 12;
     // di bawah target bila muat; kalau tidak di atasnya; kalau dua-duanya tidak muat (target setinggi layar) → menempel di bawah layar
     const top = below + cardH < vh - 16 ? below : above >= 16 ? above : Math.max(16, vh - cardH - 84);
     const left = Math.min(Math.max(16, rect.left + rect.width / 2 - cardW / 2), vw - cardW - 16);
@@ -201,13 +213,16 @@ function TourOverlay({ steps, index, onIndex, onClose }: { steps: TourStep[]; in
     <div className="fixed inset-0 z-[80]" role="dialog" aria-modal="true" aria-label={step.title}>
       {/* lapisan gelap + spotlight (satu elemen, bayangan raksasa) */}
       <button type="button" aria-label="Tutup tur" onClick={onClose} className="absolute inset-0 cursor-default" />
+      {/* Spotlight: celah 6px di sekitar target + garis aksen + glow, sisanya diredupkan.
+          Warna redup & glow per tema (globals.css: --tour-dim, --tour-glow) — di dark mode latar sudah
+          hampir hitam, jadi redupnya harus lebih pekat dan target diberi garis aksen agar tetap menonjol. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute rounded-[14px] ring-2 ring-white/70 transition-[top,left,width,height,opacity] duration-300 ease-[var(--ease-out)] dark:ring-white/40"
+        className="tour-spotlight pointer-events-none absolute rounded-[16px] transition-[top,left,width,height,opacity] duration-300 ease-[var(--ease-out)]"
         style={
           rect
-            ? { top: rect.top, left: rect.left, width: rect.width, height: rect.height, boxShadow: "0 0 0 9999px rgb(9 9 11 / 0.58)" }
-            : { top: vh / 2, left: vw / 2, width: 0, height: 0, boxShadow: "0 0 0 9999px rgb(9 9 11 / 0.58)", opacity: 1 }
+            ? spotBox(rect, vw, vh)
+            : { top: vh / 2, left: vw / 2, width: 0, height: 0, opacity: 1 }
         }
       />
       <div
