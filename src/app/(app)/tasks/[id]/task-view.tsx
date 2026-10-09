@@ -1,9 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { notify } from "@/components/relay/notify";
 import {
+  ArrowRight,
   CalendarClock,
   ChevronRight,
   Clock3,
@@ -31,6 +33,7 @@ import type { TaskDetail } from "@/server/queries";
 import { checkInAction, checkOutAction, transitionAction } from "@/app/actions/tasks";
 import { Callout } from "@/components/relay/callout";
 import { HelpButton } from "@/components/tour/help-button";
+import { SlaBadge } from "@/components/relay/sla-badge";
 import { BackButton } from "@/components/relay/back-button";
 import { HoldButton } from "@/components/relay/hold-button";
 import { BottomSheet } from "@/components/relay/bottom-sheet";
@@ -55,7 +58,8 @@ export type Perms = {
   canEditReport: boolean;
   checkedInHere: boolean;
   openHere: boolean;
-  openElsewhere: string | null;
+  /** Check-in yang masih terbuka di task LAIN (harus check-out dulu di sana). */
+  openElsewhere: { taskId: string; code: string; title: string; since: string } | null;
 };
 
 export function TaskView({ detail, perms, role, initialTab }: { detail: TaskDetail; perms: Perms; role: Role; initialTab?: string }) {
@@ -65,7 +69,6 @@ export function TaskView({ detail, perms, role, initialTab }: { detail: TaskDeta
   const required = detail.items.filter((i) => i.required);
   const requiredDone = required.filter(isItemDone).length;
   const allDone = detail.items.filter(isItemDone).length;
-  const sla = slaState(t.dueAt, t.status);
   const lastRevision = [...detail.reviews].reverse().find((r) => r.review.decision === "revision");
 
   return (
@@ -73,7 +76,7 @@ export function TaskView({ detail, perms, role, initialTab }: { detail: TaskDeta
       <div className="mb-4 flex items-center gap-2">
         <BackButton fallback="/tasks" className="-ml-0.5 mr-1" />
         <button
-          className="flex items-center gap-1.5 font-mono text-sm text-muted-foreground"
+          className="flex shrink-0 items-center gap-1.5 whitespace-nowrap font-mono text-sm text-muted-foreground"
           onClick={() => {
             navigator.clipboard?.writeText(t.code);
             notify.success("Kode task disalin");
@@ -82,7 +85,7 @@ export function TaskView({ detail, perms, role, initialTab }: { detail: TaskDeta
           {t.code} <Copy className="size-3.5" />
         </button>
         <span className="ml-auto flex items-center gap-2">
-          <HelpButton />
+          <HelpButton compact />
           <StatusBadge status={t.status} />
         </span>
       </div>
@@ -94,16 +97,7 @@ export function TaskView({ detail, perms, role, initialTab }: { detail: TaskDeta
         <span>{detail.productName}</span>
         <span>·</span>
         <PriorityLabel level={detail.priority.level} name={detail.priority.name} />
-        {sla && (
-          <span
-            className={cn(
-              "tabular rounded-md px-1.5 py-0.5 text-[12px] font-medium leading-none",
-              sla.level === "overdue" ? "bg-red-500/10 text-red-600 dark:text-red-400" : sla.level === "soon" ? "bg-amber-500/10 text-amber-700 dark:text-amber-400" : "bg-foreground/[0.05] text-muted-foreground",
-            )}
-          >
-            {sla.label}
-          </span>
-        )}
+        <SlaBadge dueAt={t.dueAt} status={t.status} />
       </div>
 
       <StatusStepper status={t.status} revisionCount={t.revisionCount} />
@@ -133,7 +127,7 @@ export function TaskView({ detail, perms, role, initialTab }: { detail: TaskDeta
         </div>
       ) : null}
 
-      <div data-tour="task-detail-tabs" className="sticky top-14 z-20 -mx-4 mt-5 bg-background/90 px-4 py-2 backdrop-blur-xl lg:-mx-8 lg:px-8">
+      <div data-tour="task-detail-tabs" className="sticky top-header z-20 -mx-4 mt-5 bg-background/90 px-4 py-2 backdrop-blur-xl lg:-mx-8 lg:px-8">
         <SmoothTabs
           value={tab}
           onChange={setTab}
@@ -369,7 +363,25 @@ function ActionBar({ detail, perms, missing, goTab }: { detail: TaskDetail; perm
   if (perms.isAssignee) {
     const canCheckIn = ["assigned", "in_progress", "revision"].includes(t.status) && !perms.openHere && (t.status !== "revision" ? !perms.checkedInHere : true);
     if (canCheckIn && perms.openElsewhere) {
-      content = <Hint>Kamu masih check-in di {perms.openElsewhere}. Check-out dulu dari task itu.</Hint>;
+      const other = perms.openElsewhere;
+      content = (
+        <div className="flex items-center gap-3">
+          <span className="relative flex size-9 shrink-0 items-center justify-center rounded-full bg-emerald-500/12 text-emerald-600 dark:bg-emerald-400/15 dark:text-emerald-400">
+            <MapPin className="size-[18px]" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-[13.5px] font-semibold leading-snug">
+              Masih di lokasi <span className="whitespace-nowrap font-mono text-[13px]">{other.code}</span>
+            </p>
+            <p className="text-[12.5px] leading-snug text-muted-foreground">Sejak {other.since}. Check-out di sana dulu, baru check-in di sini.</p>
+          </div>
+          <Button asChild className="h-11 shrink-0 rounded-xl px-3.5">
+            <Link href={`/tasks/${other.taskId}?tab=checklist`}>
+              Buka <ArrowRight className="size-4" />
+            </Link>
+          </Button>
+        </div>
+      );
     } else if (t.status === "assigned" || (t.status === "in_progress" && !perms.checkedInHere)) {
       content = <HoldButton label="Tahan untuk Check-in" icon={MapPinCheck} loading={pending} onComplete={() => start(() => doCheckIn())} />;
     } else if (t.status === "in_progress") {
@@ -429,7 +441,7 @@ function ActionBar({ detail, perms, missing, goTab }: { detail: TaskDetail; perm
   return (
     <>
       {content && (
-        <div className="fixed inset-x-0 bottom-16 z-30 border-t border-foreground/[0.06] bg-background/85 px-4 py-3 backdrop-blur-xl backdrop-saturate-150 lg:bottom-0 lg:left-[248px]">
+        <div className="fixed inset-x-0 bottom-nav z-30 border-t border-foreground/[0.06] bg-background/85 px-4 py-3 backdrop-blur-xl backdrop-saturate-150 lg:bottom-0 lg:left-[248px]">
           <div data-tour="task-actions" className="mx-auto max-w-3xl">{content}</div>
         </div>
       )}

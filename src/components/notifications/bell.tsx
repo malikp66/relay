@@ -71,8 +71,10 @@ export function NotificationBell() {
   useEffect(() => {
     unlockSfx();
     return start((fresh) => {
-      // toast in-app untuk notifikasi baru (maks. 2 supaya tidak membanjiri)
-      for (const n of fresh.slice(0, 2)) {
+      // toast in-app untuk notifikasi baru (maks. 2 supaya tidak membanjiri). Toast terakhir = kartu terdepan
+      // di tumpukan, jadi ringkasan dikirim dulu dan yang terbaru paling akhir.
+      if (fresh.length > 2) notify.info(`+${fresh.length - 2} notifikasi lain`, { action: { label: "Lihat", onClick: () => setOpen(true) } });
+      for (const n of fresh.slice(0, 2).reverse()) {
         const tone = n.kind === "overdue" || n.kind === "revision_requested" ? "warning" : n.kind === "task_approved" ? "success" : "info";
         notify[tone](n.title, {
           description: n.body,
@@ -81,7 +83,6 @@ export function NotificationBell() {
           action: n.url ? { label: "Buka", onClick: () => openItem(n) } : undefined,
         });
       }
-      if (fresh.length > 2) notify.info(`+${fresh.length - 2} notifikasi lain`, { action: { label: "Lihat", onClick: () => setOpen(true) } });
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

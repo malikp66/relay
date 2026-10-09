@@ -11,7 +11,6 @@ import { EmptyState, Metrics, Section } from "@/components/relay/page";
 import { ProgressRings } from "@/components/relay/progress-ring";
 import { Avatar } from "@/components/relay/avatar-stack";
 import { LinkCard } from "@/components/relay/link-card";
-import { InstallCard } from "@/components/shell/pwa";
 import { SetupChecklist } from "@/components/relay/setup-checklist";
 import { HelpButton } from "@/components/tour/help-button";
 import { setupItems } from "@/server/setup";
@@ -36,7 +35,6 @@ export default async function DashboardPage() {
         </div>
       </div>
       <SetupChecklist userId={user.id} role={user.role} items={setup} />
-      {user.role !== "technician" && <InstallCard />}
       {user.role === "technician" ? <TechnicianHome user={user} /> : user.role === "supervisor" ? <SupervisorHome user={user} /> : <AdminHome user={user} />}
     </div>
   );

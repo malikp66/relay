@@ -184,13 +184,28 @@ export async function enablePush(): Promise<{ ok: boolean; error?: string }> {
     set({ push: perm === "denied" ? "denied" : "off" });
     return { ok: false, error: perm === "denied" ? "Izin notifikasi diblokir. Buka pengaturan situs di browser untuk mengizinkan." : "Izin notifikasi belum diberikan." };
   }
-  const reg = (await registration()) ?? (await navigator.serviceWorker.ready);
-  let sub = await reg.pushManager.getSubscription();
-  sub ??= await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(state.vapidKey) });
-  const res = await fetch("/api/push", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(sub.toJSON()) });
-  if (!res.ok) return { ok: false, error: "Gagal mendaftarkan perangkat." };
-  set({ push: "on" });
-  return { ok: true };
+  try {
+    // subscribe() butuh service worker yang SUDAH aktif; getRegistration() bisa mengembalikan SW yang masih installing.
+    const reg = await activeRegistration();
+    if (!reg) return { ok: false, error: "Aplikasi belum siap menerima notifikasi. Muat ulang halaman lalu coba lagi." };
+    let sub = await reg.pushManager.getSubscription();
+    sub ??= await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(state.vapidKey) });
+    const res = await fetch("/api/push", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(sub.toJSON()) });
+    if (!res.ok) return { ok: false, error: "Gagal mendaftarkan perangkat." };
+    set({ push: "on" });
+    return { ok: true };
+  } catch {
+    set({ push: "off" });
+    return { ok: false, error: "Perangkat ini gagal didaftarkan untuk notifikasi. Muat ulang halaman lalu coba lagi." };
+  }
+}
+
+/** Registrasi dengan SW aktif; tunggu maks. 10 dtk (SW baru dipasang saat halaman pertama dibuka). */
+async function activeRegistration(): Promise<ServiceWorkerRegistration | null> {
+  if (!("serviceWorker" in navigator)) return null;
+  const reg = await navigator.serviceWorker.getRegistration();
+  if (reg?.active) return reg;
+  return Promise.race([navigator.serviceWorker.ready, new Promise<null>((r) => setTimeout(() => r(null), 10_000))]);
 }
 
 export async function disablePush() {

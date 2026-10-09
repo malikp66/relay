@@ -451,7 +451,7 @@ export function NewTaskForm(p: Props) {
       </aside>
 
       {/* Bar aksi — mobile/tablet */}
-      <div className="pb-safe fixed inset-x-0 bottom-16 z-30 border-t border-foreground/[0.06] bg-background/85 px-4 pt-2.5 backdrop-blur-xl backdrop-saturate-150 lg:hidden">
+      <div className="fixed inset-x-0 bottom-nav z-30 border-t border-foreground/[0.06] bg-background/85 px-4 pt-2.5 backdrop-blur-xl backdrop-saturate-150 lg:hidden">
         <p className="mb-2 flex items-center gap-1.5 text-[12px] text-muted-foreground">
           {missing.length ? (
             <>

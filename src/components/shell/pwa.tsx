@@ -1,8 +1,9 @@
 "use client";
 
-import { Download, Share } from "lucide-react";
+import { Download, EllipsisVertical, Share } from "lucide-react";
 import { CloseButton, IconTile } from "@/components/relay/icon-button";
-import { useEffect, useSyncExternalStore } from "react";
+import { usePathname } from "next/navigation";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { notify } from "@/components/relay/notify";
 import { Button } from "@/components/ui/button";
 
@@ -41,9 +42,20 @@ export function PwaRegister() {
   return null;
 }
 
-/* Store kecil untuk status install (tanpa setState di effect). */
+/* ───────────── Ajakan install (PWA) ─────────────
+ * Status: "prompt"  = Chrome/Edge memberi prompt install asli (beforeinstallprompt)
+ *         "android" = Android tanpa prompt (mis. Samsung Internet / prompt belum tersedia) → panduan menu ⋮
+ *         "ios"     = Safari iPhone/iPad → panduan Share → Tambahkan ke Layar Utama
+ *         "hidden"  = sudah terpasang / desktop tanpa prompt
+ * Banner di atas halaman bisa ditunda ("Nanti") 3 hari, lalu muncul lagi sampai aplikasi dipasang.
+ * Kartu di halaman Akun selalu tampil selama belum terpasang. */
+export type InstallState = "prompt" | "android" | "ios" | "hidden";
+const SNOOZE_KEY = "relay-install-snooze";
+const SNOOZE_MS = 3 * 24 * 3600_000;
+
 let deferred: BIPEvent | null = null;
-let dismissedFlag = false;
+let installed = false;
+let snoozedUntil = 0;
 const listeners = new Set<() => void>();
 const emit = () => listeners.forEach((l) => l());
 if (typeof window !== "undefined") {
@@ -52,63 +64,130 @@ if (typeof window !== "undefined") {
     deferred = e as BIPEvent;
     emit();
   });
-}
-function readState() {
-  if (typeof window === "undefined") return "hidden";
-  let dismissed = dismissedFlag;
+  window.addEventListener("appinstalled", () => {
+    installed = true;
+    deferred = null;
+    emit();
+  });
   try {
-    dismissed ||= localStorage.getItem("relay-install-dismissed") === "1";
+    snoozedUntil = Number(localStorage.getItem(SNOOZE_KEY)) || 0;
   } catch {}
+}
+function installState(): InstallState {
+  if (typeof window === "undefined") return "hidden";
   const standalone = window.matchMedia("(display-mode: standalone)").matches || (navigator as unknown as { standalone?: boolean }).standalone;
-  if (standalone || dismissed) return "hidden";
+  if (standalone || installed) return "hidden";
   if (deferred) return "prompt";
-  return /iphone|ipad|ipod/i.test(navigator.userAgent) ? "ios" : "hidden";
+  const ua = navigator.userAgent;
+  if (/iphone|ipad|ipod/i.test(ua)) return "ios";
+  if (/android/i.test(ua)) return "android";
+  return "hidden";
 }
 const subscribeInstall = (cb: () => void) => {
   listeners.add(cb);
   return () => listeners.delete(cb);
 };
+const useInstallState = () => useSyncExternalStore(subscribeInstall, installState, () => "hidden" as InstallState);
+const snoozed = () => snoozedUntil > Date.now();
+const useSnoozed = () => useSyncExternalStore(subscribeInstall, snoozed, () => true);
+function snooze() {
+  snoozedUntil = Date.now() + SNOOZE_MS;
+  try {
+    localStorage.setItem(SNOOZE_KEY, String(snoozedUntil));
+  } catch {}
+  emit();
+}
+async function promptInstall() {
+  const ev = deferred;
+  if (!ev) return;
+  await ev.prompt();
+  const { outcome } = await ev.userChoice;
+  deferred = null; // prompt hanya bisa dipakai sekali
+  if (outcome === "accepted") installed = true;
+  else snooze();
+  emit();
+}
 
-/** Ajakan install aplikasi (Android: prompt asli; iOS: panduan Share → Add to Home Screen). */
-export function InstallCard() {
-  const state = useSyncExternalStore(subscribeInstall, readState, () => "hidden");
-  if (state === "hidden") return null;
-  const dismiss = () => {
-    dismissedFlag = true;
-    try {
-      localStorage.setItem("relay-install-dismissed", "1");
-    } catch {}
-    emit();
-  };
+function InstallHint({ state }: { state: InstallState }) {
+  if (state === "ios")
+    return (
+      <>
+        Ketuk <Share className="inline size-3.5 -translate-y-px" /> di Safari, lalu pilih “Tambahkan ke Layar Utama”.
+      </>
+    );
+  if (state === "android")
+    return (
+      <>
+        Ketuk <EllipsisVertical className="inline size-3.5 -translate-y-px" /> di browser, lalu pilih “Instal aplikasi” atau “Tambahkan ke layar utama”.
+      </>
+    );
+  return <>Buka lebih cepat, tampil penuh, dan notifikasi tugas langsung masuk ke HP.</>;
+}
+
+/* Banner hanya di halaman PERTAMA yang dibuka per sesi tab (bukan di setiap halaman yang dikunjungi). */
+const SESSION_KEY = "relay-install-banner-page";
+function bannerPage(path: string) {
+  try {
+    const seen = sessionStorage.getItem(SESSION_KEY);
+    if (seen) return seen;
+    sessionStorage.setItem(SESSION_KEY, path);
+  } catch {}
+  return path;
+}
+
+/** Banner ajakan install di atas konten, muncul saat aplikasi dibuka di browser (belum terpasang). */
+export function InstallBanner() {
+  const path = usePathname();
+  const state = useInstallState();
+  const isSnoozed = useSnoozed();
+  const [firstPage] = useState(() => (typeof window === "undefined" ? path : bannerPage(path)));
+  // Halaman Akun sudah punya kartu install sendiri.
+  if (state === "hidden" || isSnoozed || path !== firstPage || path === "/account") return null;
   return (
-    <div className="flex items-center gap-3 rounded-2xl border bg-card p-3.5 pr-2.5 shadow-[var(--shadow-card)]">
+    <div role="region" aria-label="Pasang aplikasi" className="install-banner mb-5 flex items-start gap-3 rounded-2xl border border-primary/20 bg-primary/[0.05] p-3 pr-2 dark:bg-primary/[0.09]">
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+        <Download className="size-[18px]" />
+      </span>
+      <div className="min-w-0 flex-1 pt-0.5">
+        <p className="text-[13.5px] font-semibold leading-snug">Pasang Relay di HP</p>
+        <p className="mt-0.5 text-[12.5px] leading-snug text-muted-foreground">
+          <InstallHint state={state} />
+        </p>
+        {/* Tanpa prompt asli (iOS / Android tertentu) cukup panduan + tombol tutup; tidak ada tombol yang tak berguna. */}
+        {state === "prompt" && (
+          <div className="mt-2.5 flex items-center gap-1">
+            <Button size="sm" className="h-8 rounded-lg px-3" onClick={promptInstall}>
+              Pasang sekarang
+            </Button>
+            <Button size="sm" variant="ghost" className="h-8 rounded-lg px-2.5 text-muted-foreground" onClick={snooze}>
+              Nanti saja
+            </Button>
+          </div>
+        )}
+      </div>
+      <CloseButton size="sm" onClick={snooze} label="Tutup, ingatkan 3 hari lagi" />
+    </div>
+  );
+}
+
+/** Kartu install di halaman Akun (selalu tampil selama belum terpasang, tidak bisa ditunda). */
+export function InstallCard() {
+  const state = useInstallState();
+  if (state === "hidden") return null;
+  return (
+    <div className="flex items-center gap-3 rounded-2xl border bg-card p-3.5 shadow-[var(--shadow-card)]">
       <IconTile icon={Download} color="#2563eb" size="lg" />
       <div className="min-w-0 flex-1">
         <p className="text-sm font-semibold">Pasang Relay di HP</p>
-        <p className="text-xs text-muted-foreground">
-          {state === "ios" ? (
-            <>
-              Ketuk <Share className="inline size-3.5" /> lalu “Tambahkan ke Layar Utama”.
-            </>
-          ) : (
-            "Buka lebih cepat, tampil penuh seperti aplikasi."
-          )}
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          <InstallHint state={state} />
         </p>
       </div>
       {state === "prompt" && (
-        <Button
-          size="sm"
-          className="rounded-xl"
-          onClick={async () => {
-            await deferred?.prompt();
-            deferred = null;
-            dismiss();
-          }}
-        >
+        <Button size="sm" className="rounded-xl" onClick={promptInstall}>
           Pasang
         </Button>
       )}
-      <CloseButton size="sm" onClick={dismiss} label="Jangan tampilkan lagi" />
     </div>
   );
 }

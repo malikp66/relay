@@ -12,6 +12,10 @@ import { ThemeIconButton } from "@/components/shell/theme";
 import { TourIdentity, TourProvider } from "@/components/tour/tour-provider";
 import { NavTracker } from "@/components/relay/back-button";
 import { NotificationBell } from "@/components/notifications/bell";
+import { OnSiteBar } from "@/components/shell/on-site-bar";
+import { InstallBanner } from "@/components/shell/pwa";
+import { openAttendance } from "@/server/queries";
+import { fmtTime } from "@/lib/format";
 import { BrandMark } from "@/lib/brand-icon";
 import { ROLE_LABEL } from "@/lib/labels";
 
@@ -59,6 +63,14 @@ async function HeaderUserMenu() {
 async function MobileNav() {
   const user = await requireUser();
   return <BottomNav role={user.role} badges={await navBadges(user)} />;
+}
+/** Teknisi yang masih check-in → bar pengingat di bawah header (lihat on-site-bar.tsx). */
+async function OnSite() {
+  const user = await requireUser();
+  if (user.role !== "technician") return null;
+  const open = await openAttendance(user.id);
+  if (!open) return null;
+  return <OnSiteBar taskId={open.taskId} code={open.code} title={open.title} since={fmtTime(open.checkInAt)} checkInAt={open.checkInAt.toISOString()} />;
 }
 async function TourUser() {
   const user = await requireUser();
@@ -128,10 +140,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 </Suspense>
               </div>
             </div>
+            <Suspense fallback={null}>
+              <OnSite />
+            </Suspense>
           </header>
-          <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-28 pt-5 lg:px-8 lg:pb-12">{children}</main>
+          <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-28 pt-5 lg:px-8 lg:pb-12">
+            <InstallBanner />
+            {children}
+          </main>
         </div>
-        <Suspense fallback={<div aria-hidden className="pb-safe fixed inset-x-0 bottom-0 z-40 h-[62px] border-t border-foreground/[0.07] bg-background/85 backdrop-blur-xl lg:hidden" />}>
+        <Suspense fallback={<div aria-hidden className="pb-safe fixed inset-x-0 bottom-0 z-40 h-[66px] border-t border-foreground/[0.07] bg-background/85 backdrop-blur-xl lg:hidden" />}>
           <MobileNav />
         </Suspense>
       </div>

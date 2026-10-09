@@ -230,6 +230,20 @@
 @utility pb-safe {
   padding-bottom: env(safe-area-inset-bottom);
 }
+/* Bar aksi yang menempel tepat di atas bottom nav (tinggi 66px + safe area iPhone; lihat shell/nav.tsx) */
+@utility bottom-nav {
+  bottom: calc(66px + env(safe-area-inset-bottom));
+}
+/* Elemen sticky di bawah header: tinggi header 56px, +40px bila bar "Kamu di lokasi" tampil */
+:root {
+  --header-h: 3.5rem;
+}
+:root:has([data-on-site-bar]) {
+  --header-h: 6rem;
+}
+@utility top-header {
+  top: var(--header-h);
+}
 @utility pt-safe {
   padding-top: env(safe-area-inset-top);
 }
@@ -248,6 +262,30 @@
 [data-slot="dialog-overlay"],
 [data-slot="drawer-overlay"] {
   backdrop-filter: blur(2px);
+}
+
+/* Tumpukan notifikasi (sonner expand=false, kartu unstyled `.relay-toast` di dalam pembungkus sonner).
+   Kartu belakang setinggi kartu depan dan isinya disembunyikan, jadi hanya tepinya yang mengintip. */
+[data-sonner-toast] :has(.relay-toast),
+.relay-toast {
+  height: 100%;
+}
+.relay-toast > * {
+  transition: opacity 200ms var(--ease-out);
+}
+[data-sonner-toast][data-expanded="false"][data-front="false"] .relay-toast > * {
+  opacity: 0;
+}
+
+/* Banner install: turun pelan saat aplikasi dibuka (hanya transform/opacity) */
+.install-banner {
+  animation: install-in 320ms var(--ease-out) 600ms both;
+}
+@keyframes install-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
 }
 
 @keyframes toast-countdown {

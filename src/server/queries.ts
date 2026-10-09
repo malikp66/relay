@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { and, asc, desc, eq, gte, ilike, inArray, isNull, lt, lte, ne, notInArray, or, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { getDb, schema as s } from "@/db";
@@ -197,11 +198,7 @@ export async function getTaskDetail(user: CurrentUser, id: string) {
       .innerJoin(s.users, eq(s.users.id, s.attendances.userId))
       .where(eq(s.attendances.taskId, id))
       .orderBy(asc(s.attendances.checkInAt)),
-    db
-      .select({ id: s.attendances.id, taskId: s.attendances.taskId, code: s.tasks.code })
-      .from(s.attendances)
-      .innerJoin(s.tasks, eq(s.tasks.id, s.attendances.taskId))
-      .where(and(eq(s.attendances.userId, user.id), isNull(s.attendances.checkOutAt))),
+    openAttendance(user.id).then((a) => [a ?? undefined]),
   ]);
   if (!canViewTask(user, t.task, assignees.map((a) => a.id))) return "forbidden" as const;
 
@@ -405,3 +402,16 @@ export async function maintenancePlans(user: CurrentUser) {
   const users = await db.select({ id: s.users.id, name: s.users.name }).from(s.users);
   return plans.map((p) => ({ ...p, assignees: users.filter((u) => p.plan.assigneeIds.includes(u.id)) }));
 }
+
+/** Check-in yang belum di-check-out milik user (maks. satu). Dipakai bar "Kamu di lokasi" & detail task. */
+export const openAttendance = cache(async (userId: string) => {
+  const db = await getDb();
+  const [row] = await db
+    .select({ id: s.attendances.id, taskId: s.attendances.taskId, code: s.tasks.code, title: s.tasks.title, checkInAt: s.attendances.checkInAt })
+    .from(s.attendances)
+    .innerJoin(s.tasks, eq(s.tasks.id, s.attendances.taskId))
+    .where(and(eq(s.attendances.userId, userId), isNull(s.attendances.checkOutAt)))
+    .limit(1);
+  return row ?? null;
+});
+export type OpenAttendance = NonNullable<Awaited<ReturnType<typeof openAttendance>>>;

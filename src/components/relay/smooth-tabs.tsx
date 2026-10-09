@@ -26,7 +26,7 @@ export function SmoothTabs({ items, value, onChange, className }: { items: TabIt
             aria-selected={active}
             onClick={() => onChange(it.id)}
             className={cn(
-              "relative flex h-[34px] min-w-0 flex-1 items-center justify-center whitespace-nowrap rounded-[9px] px-2.5 text-[13px] font-medium outline-none",
+              "relative flex h-[34px] flex-[1_0_auto] items-center justify-center whitespace-nowrap rounded-[9px] px-3 text-[13px] font-medium outline-none",
               "transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-ring/50",
               active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
             )}

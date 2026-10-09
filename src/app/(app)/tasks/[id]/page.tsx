@@ -2,6 +2,7 @@ import { forbidden, notFound } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { getDb, schema as s } from "@/db";
 import { requireUser } from "@/server/auth";
+import { fmtTime } from "@/lib/format";
 import { getTaskDetail } from "@/server/queries";
 import { canManageTask, isAssignee } from "@/server/policy";
 import { CHECKLIST_EDITABLE, REPORT_EDITABLE } from "@/server/workflow";
@@ -32,7 +33,10 @@ export default async function TaskPage({ params, searchParams }: PageProps<"/tas
     canEditReport: mine && REPORT_EDITABLE.includes(detail.task.status),
     checkedInHere,
     openHere: !!openHere,
-    openElsewhere: detail.myOpenAttendance && detail.myOpenAttendance.taskId !== id ? detail.myOpenAttendance.code : null,
+    openElsewhere:
+      detail.myOpenAttendance && detail.myOpenAttendance.taskId !== id
+        ? { taskId: detail.myOpenAttendance.taskId, code: detail.myOpenAttendance.code, title: detail.myOpenAttendance.title, since: fmtTime(detail.myOpenAttendance.checkInAt) }
+        : null,
   };
   return <TaskView detail={detail} perms={perms} role={user.role} initialTab={typeof sp.tab === "string" ? sp.tab : undefined} />;
 }

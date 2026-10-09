@@ -33,7 +33,7 @@ function ToastCard({ id, tone, title, description, action, duration }: { id: str
   return (
     <div
       role={tone === "error" ? "alert" : "status"}
-      className="group/toast pointer-events-auto relative w-full overflow-hidden rounded-2xl border bg-popover text-popover-foreground shadow-[var(--shadow-pop)] sm:w-[360px]"
+      className="relay-toast group/toast pointer-events-auto relative w-full overflow-hidden rounded-2xl border bg-popover text-popover-foreground shadow-[var(--shadow-pop)] sm:w-[360px]"
     >
       <div className="flex items-start gap-3 py-3 pl-3.5 pr-2">
         <span className={cn("mt-px flex size-7 shrink-0 items-center justify-center rounded-full", t.badge)}>

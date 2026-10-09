@@ -196,7 +196,7 @@ export function ReportTemplateEditor({ tpl, canEdit }: { tpl: ReportTpl; canEdit
       <div
         aria-hidden={!dirty}
         className={cn(
-          "pb-safe fixed inset-x-0 bottom-16 z-30 border-t border-foreground/[0.06] bg-background/90 px-4 py-3 backdrop-blur-xl transition-[transform,opacity] duration-200 ease-[var(--ease-out)] lg:bottom-0 lg:left-[248px]",
+          "fixed inset-x-0 bottom-nav z-30 border-t border-foreground/[0.06] bg-background/90 px-4 py-3 backdrop-blur-xl transition-[transform,opacity] duration-200 ease-[var(--ease-out)] lg:bottom-0 lg:left-[248px]",
           dirty ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-3 opacity-0",
         )}
       >

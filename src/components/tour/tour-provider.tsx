@@ -60,17 +60,17 @@ export function TourProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pageTour = PAGE_TOURS.find((t) => t.match(path));
 
+  // Efek samping (localStorage + event) di luar updater setState: updater bisa dijalankan saat render
+  // dan memicu setState komponen lain (SetupChecklist) di tengah render.
   const close = useCallback(() => {
-    setTour((t) => {
-      if (t?.welcome) {
-        try {
-          localStorage.setItem(storageKey(userId), "done");
-        } catch {}
-        window.dispatchEvent(new Event("relay-tour-done"));
-      }
-      return null;
-    });
-  }, [userId]);
+    if (tour?.welcome) {
+      try {
+        localStorage.setItem(storageKey(userId), "done");
+      } catch {}
+      window.dispatchEvent(new Event("relay-tour-done"));
+    }
+    setTour(null);
+  }, [tour, userId]);
 
   /** Tur perkenalan per role (di Beranda). */
   const start = useCallback(() => {

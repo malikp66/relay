@@ -12,7 +12,7 @@ Rencana & tasklist: `../RENCANA_PENGERJAAN_RELAY.md`. Papan kerja: `../SPRINT_BO
 - Otorisasi selalu di server: `requireUser(roles)` (forbidden() → 403), `taskScope(user)` untuk query list, `canViewTask/canManageTask/isAssignee`.
 - Server Component tidak boleh mengoper fungsi ke Client Component — hitung string tampilan di server.
 - Lint React Compiler aktif: hindari `setState` sinkron di `useEffect` (pakai `useSyncExternalStore` / handler), hindari `Date.now()` langsung di render server (pakai `nowMs()` dari `lib/clock`).
-- Error/alert: notifikasi SELALU `notify.*` (`components/relay/notify.tsx`, kanan atas) — jangan import `toast` dari sonner langsung. `<Alert>` (inline, callout) & `useAlert().confirm()/banner` dari `components/relay/alert.tsx`. Di dev, `window.relayNotify` tersedia untuk uji. Halaman error via `ErrorScreen` + katalog `lib/errors.ts`.
+- Error/alert: notifikasi SELALU `notify.*` (`components/relay/notify.tsx`, kanan atas) — jangan import `toast` dari sonner langsung. `<Alert>` (inline, callout) & `useAlert().confirm()/banner` dari `components/relay/alert.tsx`. Toast ditumpuk 3D (sonner `expand={false}`, CSS `.relay-toast` di globals.css); toast terakhir = kartu terdepan. Di dev, `window.relayNotify` tersedia untuk uji. Halaman error via `ErrorScreen` + katalog `lib/errors.ts`.
 
 ## Gaya visual & motion (jangan "AI slop")
 - Tipografi: **Plus Jakarta Sans** (UI, mendukung angka tabular → pakai utility `tabular` untuk angka) + **JetBrains Mono** (kode task, nomor pelanggan). Judul 26px semibold tracking -0.02em; isi 14–15px; label 12–13px muted. Jangan kembali ke Geist/Inter.
@@ -24,6 +24,7 @@ Rencana & tasklist: `../RENCANA_PENGERJAAN_RELAY.md`. Papan kerja: `../SPRINT_BO
 - Ritme spasi: halaman `space-y-8`; `PageHeader` mb-6; `Section` (judul 15px + `count`) → isi 12px; kartu p-4 / sm:p-5; baris list px-4 py-2.5–3.
 - Angka/KPI: `Metrics` (satu kartu, sel bergaris pemisah). Kartu berjudul: `Panel`. Bar ranking: `BarList`. Jangan bikin kartu angka sendiri.
 - Filter: chip `Select` (lihat `stats/filters.tsx`), bukan `<select>` bawaan browser. Baris yang bisa digeser horizontal diberi fade mask di kanan.
+- Bar aksi yang menempel di atas bottom nav: utility `bottom-nav` (66px + safe area). Elemen sticky di bawah header: `top-header` (ikut bertambah saat bar "Di lokasi" tampil).
 - Grid berisi list/teks panjang: pakai `grid-cols-1` + `min-w-0` supaya tidak melebar di HP.
 
 ## Tur & langkah awal
@@ -31,6 +32,9 @@ Rencana & tasklist: `../RENCANA_PENGERJAAN_RELAY.md`. Papan kerja: `../SPRINT_BO
 - Langkah tur: target = atribut `data-tour` (mis. `nav-tasks`, `home-summary`, `user-menu`, `setup`). Elemen terlihat pertama yang dipakai. Naikkan `TOUR_VERSION` bila tur berubah besar (semua user akan melihat lagi).
 - Checklist "Mulai di sini": `server/setup.ts` (admin/supervisor, dari data) + `components/relay/setup-checklist.tsx` (teknisi: kesiapan perangkat).
 - Status di halaman: pakai `Callout` (kartu netral + border kiri 3px berwarna yang ikut melengkung), bukan blok warna penuh.
+
+## Check-in
+- Satu teknisi hanya boleh punya satu check-in terbuka (`openAttendance` di queries.ts). Selama terbuka, `OnSiteBar` (shell/on-site-bar.tsx) tampil di bawah header di semua halaman kecuali task itu; task lain menampilkan kartu "Masih di lokasi" + tombol Buka.
 
 ## Notifikasi
 - Server: `server/notifications.ts` — `notifyTask(kind, taskId, actor, note)` menyusun judul/isi + penerima, simpan ke tabel `notifications`, lalu Web Push via `after()`. Dipanggil dari `workflow.transition` (semua transisi), `createTaskAction`, `checkInAction`. Kejadian baru → tambah `NotificationKind` (schema) + case di `compose()` + `KIND_META` (bell) + `SFX_FOR` (store).

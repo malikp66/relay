@@ -77,12 +77,12 @@ export function BottomNav({ role, badges }: { role: Role; badges: Partial<Record
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-foreground/[0.07] bg-background/85 pb-safe backdrop-blur-xl backdrop-saturate-150 lg:hidden">
-      <ul ref={listRef} className="relative mx-auto grid h-[62px] max-w-lg grid-cols-5 px-1">
-        {/* pill aktif — ukuran & posisi sama persis dengan wadah ikon (56×32, top 7px) */}
+      <ul ref={listRef} className="relative mx-auto grid h-[66px] max-w-lg grid-cols-5 px-1">
+        {/* pill aktif — ukuran & posisi sama persis dengan wadah ikon (60×32, top 9px) */}
         <span
           ref={indRef}
           aria-hidden
-          className="pointer-events-none absolute left-0 top-[7px] h-8 w-14 rounded-full bg-primary/[0.12] opacity-0 data-[ready]:transition-[transform,opacity] data-[ready]:duration-300 data-[ready]:ease-[var(--ease-out)] dark:bg-primary/20"
+          className="pointer-events-none absolute left-0 top-[9px] h-8 w-[60px] rounded-full bg-primary/[0.12] opacity-0 data-[ready]:transition-[transform,opacity] data-[ready]:duration-300 data-[ready]:ease-[var(--ease-out)] dark:bg-primary/20"
         />
         {keys.map((k) => {
           const it = navItem(k);
@@ -96,17 +96,17 @@ export function BottomNav({ role, badges }: { role: Role; badges: Partial<Record
                 data-tour={`nav-${k}`}
                 onClick={() => select(k)}
                 aria-current={on ? "page" : undefined}
-                className="group flex w-full flex-col items-center pt-[7px] outline-none [-webkit-tap-highlight-color:transparent]"
+                className="group flex w-full flex-col items-center pt-[9px] outline-none [-webkit-tap-highlight-color:transparent]"
               >
-                <span className="relative flex h-8 w-14 items-center justify-center transition-transform duration-150 ease-[var(--ease-out)] group-active:scale-90">
+                <span className="relative flex h-8 w-[60px] items-center justify-center transition-transform duration-150 ease-[var(--ease-out)] group-active:scale-90">
                   <Icon className={cn("size-[21px] transition-colors duration-200", on ? "text-primary" : "text-muted-foreground")} strokeWidth={on ? 2.25 : 1.9} />
                   {badge ? (
-                    <span className="tabular absolute left-[31px] top-[1px] flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold leading-none text-white ring-2 ring-background">
+                    <span className="tabular absolute left-[34px] top-[-3px] flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold leading-none text-white ring-2 ring-background">
                       {badge > 99 ? "99+" : badge}
                     </span>
                   ) : null}
                 </span>
-                <span className={cn("mt-[3px] text-[11px] leading-none tracking-[-0.005em] transition-colors duration-200", on ? "font-semibold text-foreground" : "font-medium text-muted-foreground")}>{it.label}</span>
+                <span className={cn("mt-[5px] text-[11px] leading-none tracking-[-0.005em] transition-colors duration-200", on ? "font-semibold text-foreground" : "font-medium text-muted-foreground")}>{it.label}</span>
               </Link>
             </li>
           );

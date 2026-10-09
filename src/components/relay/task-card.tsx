@@ -3,13 +3,12 @@ import { ArrowUpRight, CalendarClock, MapPin, RotateCcw } from "lucide-react";
 import type { CSSProperties } from "react";
 import { STATUS_META } from "@/lib/labels";
 import type { TaskListItem } from "@/server/queries";
-import { fmtDateTime, slaState } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import { fmtDateTime } from "@/lib/format";
+import { SlaBadge } from "./sla-badge";
 import { AvatarStack } from "./avatar-stack";
 import { PriorityLabel, StatusBadge } from "./badges";
 
 export function TaskCard({ task, showGroup, footnote }: { task: TaskListItem; showGroup?: boolean; footnote?: React.ReactNode }) {
-  const sla = slaState(task.dueAt, task.status);
   const pct = task.progress.total ? task.progress.done / task.progress.total : 0;
   return (
     <Link href={`/tasks/${task.id}`} style={{ "--tint": STATUS_META[task.status].tint } as CSSProperties} className="card-interactive group block rounded-2xl p-4 outline-none">
@@ -47,11 +46,7 @@ export function TaskCard({ task, showGroup, footnote }: { task: TaskListItem; sh
       <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
         <StatusBadge status={task.status} />
         <PriorityLabel level={task.priorityLevel} name={task.priorityName} />
-        {sla && (
-          <span className={cn("rounded-md px-1.5 py-0.5 text-[11px] font-medium", sla.level === "overdue" ? "bg-red-50 text-red-600 dark:bg-red-950 dark:text-red-400" : sla.level === "soon" ? "bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-400" : "text-muted-foreground")}>
-            {sla.label}
-          </span>
-        )}
+        <SlaBadge dueAt={task.dueAt} status={task.status} className="h-[22px] px-2 text-[11px]" />
         {task.revisionCount > 0 && (
           <span className="flex items-center gap-1 text-[11px] font-medium text-red-600 dark:text-red-400">
             <RotateCcw className="size-3" />

@@ -7,6 +7,7 @@ import { getDb, schema as s } from "@/db";
 import { requireUser } from "@/server/auth";
 import { canManageTask, isAssignee } from "@/server/policy";
 import { notifyTask } from "@/server/notifications";
+import { openAttendance } from "@/server/queries";
 import { CHECKLIST_EDITABLE, REPORT_EDITABLE, WorkflowError, loadTaskForAction, transition, type TransitionAction } from "@/server/workflow";
 
 export type Result = { ok: true; id?: string } | { ok: false; error: string; fieldErrors?: Record<string, string> };
@@ -126,11 +127,8 @@ export async function checkInAction(taskId: string, pos: { lat: number; lng: num
     const { task, assigneeIds } = await loadTaskForAction(db, taskId);
     if (!isAssignee(user, assigneeIds)) throw new WorkflowError("Kamu tidak ditugaskan di task ini.");
     if (!["assigned", "in_progress", "revision"].includes(task.status)) throw new WorkflowError("Check-in tidak tersedia untuk status ini.");
-    const [open] = await db
-      .select({ taskId: s.attendances.taskId })
-      .from(s.attendances)
-      .where(and(eq(s.attendances.userId, user.id), isNull(s.attendances.checkOutAt)));
-    if (open) throw new WorkflowError(open.taskId === taskId ? "Kamu sudah check-in di task ini." : "Kamu masih check-in di task lain. Check-out dulu.");
+    const open = await openAttendance(user.id);
+    if (open) throw new WorkflowError(open.taskId === taskId ? "Kamu sudah check-in di task ini." : `Kamu masih di lokasi ${open.code}. Check-out di sana dulu.`);
 
     const [site] = task.siteId ? await db.select().from(s.sites).where(eq(s.sites.id, task.siteId)) : [];
     const distance = site ? Math.round(haversine(pos.lat, pos.lng, site.lat, site.lng)) : null;
